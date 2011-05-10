@@ -4,7 +4,6 @@ use warnings;
 use strict;
 
 use Tk;
-use Tk::LineGraph;
 use Graphics::GnuplotIF;
 
 my @bytes;
