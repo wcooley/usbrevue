@@ -96,10 +96,11 @@ static int audio_configure(snd_pcm_t *device) {
 void audio_set_default_levels() {
   int err;
   snd_ctl_t *ctl;
-  snd_ctl_elem_value_t *mic_vol, *spkr_vol;
+  snd_ctl_elem_value_t *mic_vol, *spkr_vol, *input_sw;
 
   snd_ctl_elem_value_alloca(&mic_vol);
   snd_ctl_elem_value_alloca(&spkr_vol);
+  snd_ctl_elem_value_alloca(&input_sw);
 
   if (snd_ctl_open(&ctl, ALSA_DEVICE, 0)) {
     fprintf(stderr, "can't open audio device");
@@ -122,6 +123,14 @@ void audio_set_default_levels() {
   err = snd_ctl_elem_write(ctl, spkr_vol);
   if (err)
     fprintf(stderr, "can't set speaker volume: %s\n", snd_strerror(err));
+
+  /* set capture source */
+  snd_ctl_elem_value_set_interface(input_sw, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(input_sw, "PCM Capture Source");
+  snd_ctl_elem_value_set_integer(input_sw, 0, 0);
+  err = snd_ctl_elem_write(ctl, input_sw);
+  if (err)
+    fprintf(stderr, "can't set capture source: %s\n", snd_strerror(err));
 
   snd_ctl_close(ctl);
 }
