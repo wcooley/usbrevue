@@ -2,12 +2,24 @@
 #include <stdlib.h>
 #include <signal.h>
 #include "device.h"
+#include "audio.h"
 #include "bm.h" /* xbm image */
 
 static int terminated = 0;
 
 void handle_sig(int sig) {
   terminated = 1;
+}
+
+/* echo back the input with some crude (but hilarious) pitch-shifting */
+void process_audio(int16_t *inbuf, int16_t *outbuf, int n) {
+  int i, j;
+  for (i=0; i < n/500; ++i)
+    for (j=0; j < 500; ++j)
+      if (i*500 + 2*j < n)
+        outbuf[i*500 + j] = inbuf[i*500 + 2*j];
+      else
+        outbuf[i*500 + j] = outbuf[(i-1)*500 + j];
 }
 
 int main(int argc, char **argv) {
@@ -34,6 +46,10 @@ int main(int argc, char **argv) {
   }
   if (!err) err = display_redraw();
 
+  if (!err) audio_set_default_levels();
+  /* start the audio thread running the pitch shifter */
+  if (!err) err = audio_start(process_audio);
+
   /* collect some key presses */
   while (!terminated && !err) {
     key = 0;
@@ -47,6 +63,7 @@ int main(int argc, char **argv) {
 
   if (!err) display_backlight(0);
 
+  audio_close();
   device_close();
   exit(0);
 }
