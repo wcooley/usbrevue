@@ -3,118 +3,97 @@
 use warnings;
 use strict;
 
-use Tk;
-use Graphics::GnuplotIF;
+use IO::Handle;
+use Data::Dumper;
 
-my @bytes;
-my @checkbuttons;
-my $getStdin = 1;
-
-my $mw = new MainWindow;
-my $startButton = $mw->Button(-text =>"Start Monitoring",-command=>\&start)->pack();
-my $stopButton = $mw->Button(-text=>"Stop Monitoring", -command=>\&stop)->pack();
-my $exitButton = $mw->Button(-text=>"Exit", -command=> sub { exit(0); })->pack();
-my $frame = $mw->Frame()->pack();
-
-MainLoop;
-
-exit(0);
-
-sub start {
-    @bytes = ();
-
-    $frame->destroy;
-    $frame = $mw->Frame()->pack();
-
-    #open($pipe, 'sudo ./device |') || die $!;
-
-    $mw->fileevent(\*STDIN, readable => \&read);
+if ($#ARGV == -1) {
+    print "Specify the max number of bytes in the stream and the byte(s) to be plotted. Use \"+\" to indicate that two bytes should be combined.\n";
+    exit(0);
 }
 
-sub read {
-        $_ = <STDIN>;
-        print;
-        # blank lines mean a new sequence
-        if ($_ !~ /^\s*$/) {
-            # split line into hex values
-        chomp($_);
-        my @hexVals = split(/ /, $_);
+my $numberOfBytes = $ARGV[0] - 1;
+my @bytesToPlot = ();
+my $inputFile = "data.dat";
+my $xWindow = 50;
+my $initialxWindow = $xWindow;
 
-        # check that there is an array for every byte in this line, and add one if there is not
-        if (scalar @bytes < scalar @hexVals) {
-            for (my $i = scalar @bytes; $i < scalar @hexVals; $i++) {
-                push @bytes, [my @tmp];
-            }
-        }
-
-        # add the hex values to the appropriate arrays. add '  ' if a byte does not have a hex value in this line
-        for (my $i = 0; $i < scalar @bytes; $i++) {
-            if (defined $hexVals[$i]) {
-                my $decimalVal = sprintf("%02d", hex($hexVals[$i]));
-                push @{$bytes[$i]}, $decimalVal;
-            } else {
-                push @{$bytes[$i]}, '  ';
-            }
-        }
-        }
-
-        
+for (my $argCnt = 1; $argCnt <= $#ARGV; $argCnt++) {
+    my $arg = $ARGV[$argCnt];
+    push @bytesToPlot, $arg;
 }
 
-sub stop {
-    $#checkbuttons = scalar @bytes - 1;
+local *PIPE;
+open(PIPE, "|gnuplot -persist") || die $!;
+PIPE->autoflush;
+print PIPE "set xtics\n";
+print PIPE "set ytics\n";
+print PIPE "set autoscale\n";
+print PIPE "set xrange [0:$initialxWindow]\n";
+print PIPE "set format " . "y" . " \"%x\"\n";
+print PIPE "set terminal x11 noraise\n";
+print PIPE "set grid\n";
+STDOUT->autoflush(1);
+STDIN->blocking(0);
 
-    $startButton->update;
+open(INPUTFILE, ">$inputFile") || die $!;
+INPUTFILE->autoflush(1);
+
+my $lineCount = 0;
+
+my $replot = 0;
+
+while (my $in = <STDIN>) {
+    chomp($in);
     
-    $frame->Label(-text=>"Select byte(s) to graph:")->pack();
-    for (my $i = 0; $i < scalar @bytes; $i++) {
-        my $cb = $frame->Checkbutton(-text=>"$i", -variable=>\$checkbuttons[$i])->pack();
-        $cb->deselect();
+    unless($in =~ /^\s*$/) {
+	my @hexVals = split(/ /, $in);
+	
+	print INPUTFILE sprintf("%06d   ", $lineCount);
+
+	foreach my $b (@bytesToPlot) {
+	    if ($b =~ /^\d+$/) {
+		if (defined($hexVals[$b])) {
+		    print INPUTFILE sprintf("%03d ", hex($hexVals[$b]));
+		} else {
+		    print INPUTFILE "??? ";
+		}
+	    } elsif ($b =~ /^(\d+)\+(\d+)$/) {
+	        if (defined($hexVals[$1]) && defined($hexVals[$2])) {
+		    print INPUTFILE sprintf("%06d ", hex($hexVals[$1])*128 + hex($hexVals[$2]));
+		} else {
+		    print INPUTFILE "?????? ";
+		}
+	    }
+	}
+#	for (my $i = 0; $i < $numberOfBytes; $i++) {
+	    #if (defined($hexVals[$i])) {
+	#	print INPUTFILE sprintf("%03d ", hex($hexVals[$i]));
+	#    } else {
+#		print INPUTFILE "??? ";
+#	    }
+#	}
+	print INPUTFILE "\n";
+	$lineCount++;
+	if ($lineCount > $initialxWindow) {
+	    print PIPE "set xrange [" . ($lineCount-$xWindow) . ":" . ($lineCount) . "]\n";
+	}
     }
-    $frame->Button(-text=>"Plot", -command=>\&plot)->pack();
-    $frame->update;
-        
+    
+    if ($replot) {
+	print PIPE "replot\n";
+    } else {
+	print PIPE "plot \"$inputFile\" using 1:2 title 'Byte $bytesToPlot[0]' with points pointtype 7 pointsize 1";
+	for (my $i = 1; $i <= $#bytesToPlot; $i++) {
+	    print PIPE ", \"$inputFile\" using 1:" . ($i + 2) . " title 'Byte $bytesToPlot[$i]' with points pointtype 7 pointsize 1";
+	}
+	print PIPE "\n";
+	$replot = 1;
+    }
+
+    #print PIPE "pause mouse\n";
 }
 
-sub plot {
-    # get the max and min values of the bytes
-    my $max = 0;
-    my $min = 255;
-    for (my $i = 0; $i < scalar @checkbuttons; $i++) {
-        if ($checkbuttons[$i] == 1) {
-            foreach my $value (@{$bytes[$i]}) {
-                if ($value ne "  " && $value > $max) {
-                    $max = $value;
-                }
-                if ($value ne "  " && $value < $min) {
-                    $min = $value;
-                }
-            }
-        }
-    }
+# print PIPE "exit;\n";
+# close PIPE;
+# close INPUTFILE;
 
-    my @x = (0 .. (scalar @{$bytes[0]}));
-    my $gnuPlotCmd = '$plot->gnuplot_plot_xy_style(\@x, ';
-    my @gnuByteTitles;
-    for (my $i = 0; $i < scalar @checkbuttons; $i++) {
-        if ($checkbuttons[$i] == 1) {
-            
-            $gnuPlotCmd .= '{\'y_values\' => \@{$bytes[' . $i . ']}, \'style_spec\' => "points pointtype 7 pointsize 0.5"}, ';
-            push @gnuByteTitles, "byte " . $i;
-        }
-    }
-    chop($gnuPlotCmd);
-    chop($gnuPlotCmd);
-    $gnuPlotCmd .= ");";
-
-    my $plot = Graphics::GnuplotIF->new(style => 'linepoints',
-                                    title => "Byte Values",
-                                    xlabel => "Message number",
-                                    ylabel => "Hex value");
-    $plot->gnuplot_cmd( 'set output', 'set key outside top', 'set key box linestyle 1', 'set xtics 1', 'set ytics ' . $min . ',8', 'set format y "%02x"', 'set grid' );
-    $plot->gnuplot_set_plot_titles(@gnuByteTitles);
-    eval $gnuPlotCmd;
-    $plot->gnuplot_cmd('pause mouse');
-}
-
-exit(0);
