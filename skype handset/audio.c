@@ -10,8 +10,8 @@
 #define SAMPLE_RATE 16000
 
 /* exact powers of two tend to give xruns for some reason */
-#define BUFFER_SIZE 8000
-#define PERIOD_SIZE 2000
+#define BUFFER_SIZE 4000
+#define PERIOD_SIZE 1000
 
 
 static snd_pcm_t *capture_handle;
@@ -96,39 +96,57 @@ static int audio_configure(snd_pcm_t *device) {
 void audio_set_default_levels() {
   int err;
   snd_ctl_t *ctl;
-  snd_ctl_elem_value_t *mic_vol, *spkr_vol, *input_sw;
+  snd_ctl_elem_value_t *val;
 
-  snd_ctl_elem_value_alloca(&mic_vol);
-  snd_ctl_elem_value_alloca(&spkr_vol);
-  snd_ctl_elem_value_alloca(&input_sw);
+  snd_ctl_elem_value_alloca(&val);
 
   if (snd_ctl_open(&ctl, ALSA_DEVICE, 0)) {
     fprintf(stderr, "can't open audio device");
     return;
   }
 
+  /* unmute microphone */
+  snd_ctl_elem_value_set_interface(val, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(val, "Mic Capture Switch");
+  snd_ctl_elem_value_set_integer(val, 0, 1);
+  err = snd_ctl_elem_write(ctl, val);
+  if (err)
+    fprintf(stderr, "can't unmute microphone: %s\n", snd_strerror(err));
+
+  /* unmute speaker */
+  snd_ctl_elem_value_clear(val);
+  snd_ctl_elem_value_set_interface(val, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(val, "Speaker Playback Switch");
+  snd_ctl_elem_value_set_integer(val, 0, 1);
+  err = snd_ctl_elem_write(ctl, val);
+  if (err)
+    fprintf(stderr, "can't unmute speaker: %s\n", snd_strerror(err));
+
   /* set mic volume */
-  snd_ctl_elem_value_set_interface(mic_vol, SND_CTL_ELEM_IFACE_MIXER);
-  snd_ctl_elem_value_set_name(mic_vol, "Mic Capture Volume");
-  snd_ctl_elem_value_set_integer(mic_vol, 0, DEFAULT_MIC_VOL);
-  err = snd_ctl_elem_write(ctl, mic_vol);
+  snd_ctl_elem_value_clear(val);
+  snd_ctl_elem_value_set_interface(val, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(val, "Mic Capture Volume");
+  snd_ctl_elem_value_set_integer(val, 0, DEFAULT_MIC_VOL);
+  err = snd_ctl_elem_write(ctl, val);
   if (err)
     fprintf(stderr, "can't set microphone volume: %s\n", snd_strerror(err));
 
   /* set speaker volume */
-  snd_ctl_elem_value_set_interface(spkr_vol, SND_CTL_ELEM_IFACE_MIXER);
-  snd_ctl_elem_value_set_name(spkr_vol, "Speaker Playback Volume");
-  snd_ctl_elem_value_set_integer(spkr_vol, 0, DEFAULT_SPKR_VOL);
-  snd_ctl_elem_value_set_integer(spkr_vol, 1, DEFAULT_SPKR_VOL);
-  err = snd_ctl_elem_write(ctl, spkr_vol);
+  snd_ctl_elem_value_clear(val);
+  snd_ctl_elem_value_set_interface(val, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(val, "Speaker Playback Volume");
+  snd_ctl_elem_value_set_integer(val, 0, DEFAULT_SPKR_VOL);
+  snd_ctl_elem_value_set_integer(val, 1, DEFAULT_SPKR_VOL);
+  err = snd_ctl_elem_write(ctl, val);
   if (err)
     fprintf(stderr, "can't set speaker volume: %s\n", snd_strerror(err));
 
   /* set capture source */
-  snd_ctl_elem_value_set_interface(input_sw, SND_CTL_ELEM_IFACE_MIXER);
-  snd_ctl_elem_value_set_name(input_sw, "PCM Capture Source");
-  snd_ctl_elem_value_set_integer(input_sw, 0, 0);
-  err = snd_ctl_elem_write(ctl, input_sw);
+  snd_ctl_elem_value_clear(val);
+  snd_ctl_elem_value_set_interface(val, SND_CTL_ELEM_IFACE_MIXER);
+  snd_ctl_elem_value_set_name(val, "PCM Capture Source");
+  snd_ctl_elem_value_set_integer(val, 0, 0);
+  err = snd_ctl_elem_write(ctl, val);
   if (err)
     fprintf(stderr, "can't set capture source: %s\n", snd_strerror(err));
 
