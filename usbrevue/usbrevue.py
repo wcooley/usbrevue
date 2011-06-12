@@ -10,7 +10,7 @@ class Packet(object):
     self.type,        = unpack_from('=c', pack, 8)
     self.xfer_type,   = unpack_from('=B', pack, 9)
 
-    if self.type not in ['C', 'S'] or self.xfer_type not in range(4):
+    if self.type not in ['C', 'S', 'E'] or self.xfer_type not in range(4):
       raise RuntimeError("Not a USB Packet")
 
     self.epnum,       = unpack_from('=B', pack, 10)
