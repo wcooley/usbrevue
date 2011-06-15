@@ -18,6 +18,8 @@ class PcapThread(QThread):
     QThread.__init__(self)
 
   def run(self):
+    if sys.stdin.isatty():
+      return
     pcap = pcapy.open_offline('-')
     # don't output anything unless we're being piped/redirected
     if not sys.stdout.isatty():
@@ -68,7 +70,9 @@ class PacketModel(QAbstractTableModel):
         return ' '.join(map(lambda x: "%02X" % x, pack.data))
     elif role == Qt.FontRole and col in [1, 2, 3]:
       return QFont("monospace")
-        
+    elif role == 32: # packet object
+      return QVariant(self.packets[row])
+ 
     return QVariant()
 
   def headerData(self, section, orientation, role = Qt.DisplayRole):
@@ -97,14 +101,40 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
     self.invalidateFilter()
 
   def filterAcceptsRow(self, source_row, source_parent):
-    # TODO it would probably be better form to define a new role
-    # and use sourceModel().data() to get the packet
-    packet = self.sourceModel().packets[source_row]
+    index = self.sourceModel().index(source_row, 0, source_parent)
+    packet = self.sourceModel().data(index, 32).toPyObject()
     try:
       return eval(self.expr, packet.__dict__)
     except:
       return False
 
+
+
+
+class PacketView(QTreeView):
+  dump_packet = pyqtSignal(object)
+
+  def __init__(self, parent = None):
+    QTreeView.__init__(self, parent)
+    self.dump_selected_act = QAction("Dump selected", self)
+    self.dump_selected_act.triggered.connect(self.dump_selected)
+
+  def contextMenuEvent(self, event):
+    menu = QMenu()
+    menu.addAction(self.dump_selected_act)
+    menu.exec_(event.globalPos())
+
+  def dump_selected(self):
+    # selectedIndexes() gives an index for each column in a selected row
+    # filter out all but column 0
+    selected = filter(lambda x: x.column() == 0, self.selectedIndexes())
+    # sort by row - dump packets in the order they appear
+    selected.sort(cmp=lambda x,y: cmp(x.row(), y.row()))
+    for i in selected:
+      packet = self.model().data(i, 32).toPyObject()
+      self.dump_packet.emit(packet)
+    
+    
 
 
 
@@ -146,11 +176,12 @@ class USBView(QApplication):
     self.packetmodel = PacketModel()
     self.proxy = PacketFilterProxyModel()
     self.proxy.setSourceModel(self.packetmodel)
-    self.packetview = QTreeView()
+    self.packetview = PacketView()
     self.packetview.setRootIsDecorated(False)
     self.packetview.setModel(self.proxy)
     self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
     self.packetview.setUniformRowHeights(True)
+    self.packetview.dump_packet.connect(self.dump_packet)
 
     self.filterpane = FilterWidget()
     self.filterpane.new_filter.connect(self.proxy.set_filter)
@@ -163,7 +194,11 @@ class USBView(QApplication):
 
     self.pcapthread = PcapThread()
     self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
+    # uncomment for pass-through
+    # TODO make this togglable from the gui
+    #self.pcapthread.new_packet.connect(self.dump_packet)
     self.pcapthread.dump_opened.connect(self.dump_opened)
+    self.pcapthread.moveToThread(self.pcapthread)
     self.pcapthread.start()
 
     self.dumper = None
@@ -171,6 +206,13 @@ class USBView(QApplication):
   def dump_opened(self, dumper):
     self.dumper = dumper
 
+  def dump_packet(self, pack):
+    if self.dumper is not None:
+      try:
+        self.dumper.dump(pack.hdr, pack.repack())
+        sys.stdout.flush()
+      except:
+        self.dumper = None
 
 
 
