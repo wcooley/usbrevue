@@ -24,6 +24,7 @@ class PcapThread(QThread):
     # don't output anything unless we're being piped/redirected
     if not sys.stdout.isatty():
       out = pcap.dump_open('-')
+      sys.stdout.flush()
       self.dump_opened.emit(out)
 
     while 1:
@@ -36,13 +37,23 @@ class PcapThread(QThread):
 
 
 
+# column indexes for packet model data
+TIMESTAMP_COL = 0
+URB_COL = 1
+ADDRESS_COL = 2
+DATA_COL = 3
+NUM_COLS = 4
+
+
 class PacketModel(QAbstractTableModel):
   """ Qt model for packet data. """
   def __init__(self, parent = None):
     QAbstractTableModel.__init__(self, parent)
     self.packets = []
-    # this is likely to change
-    self.headers = ["Timestamp", "URB id", "Address", "Data"]
+    self.headers = {TIMESTAMP_COL: "Timestamp",
+                    URB_COL: "URB id",
+                    ADDRESS_COL: "Address",
+                    DATA_COL: "Data"}
     # timestamp of the first received packet
     self.first_ts = 0
 
@@ -50,7 +61,7 @@ class PacketModel(QAbstractTableModel):
     return 0 if parent.isValid() else len(self.packets)
 
   def columnCount(self, parent = QModelIndex()):
-    return 0 if parent.isValid() else len(self.headers)
+    return 0 if parent.isValid() else NUM_COLS
 
   def data(self, index, role = Qt.DisplayRole):
     row = index.row()
@@ -58,27 +69,45 @@ class PacketModel(QAbstractTableModel):
     pack = self.packets[row]
 
     if role == Qt.DisplayRole:
-      #TODO define constants for column numbers
-      if col == 0:
+      if col == TIMESTAMP_COL:
         return "%d.%06d" % (pack.ts_sec - self.first_ts, pack.ts_usec)
-      elif col == 1:
+      elif col == URB_COL:
         return "%016X" % pack.id
-      elif col == 2:
+      elif col == ADDRESS_COL:
         return "%d:%d:%x (%s%s)" % (pack.busnum, pack.devnum, pack.epnum,
-                                    "ZICB"[pack.xfer_type], "oi"[pack.epnum>>8])
-      elif col == 3:
+                                    "ZICB"[pack.xfer_type],
+                                    "oi"[pack.epnum >> 7])
+      elif col == DATA_COL:
         return ' '.join(map(lambda x: "%02X" % x, pack.data))
-    elif role == Qt.FontRole and col in [1, 2, 3]:
+    elif role == Qt.FontRole and col in [URB_COL, ADDRESS_COL, DATA_COL]:
       return QFont("monospace")
-    elif role == 32: # packet object
+    elif role == Qt.UserRole: # packet object
       return QVariant(self.packets[row])
  
     return QVariant()
 
+  def setData(self, index, value, role = Qt.EditRole):
+    if role != Qt.EditRole or index.column() != DATA_COL:
+      return False
+    datastr = str(value.toString())
+    try:
+      data = map(lambda b: int(b, 16), datastr.split())
+    except Exception:
+      return False
+    self.packets[index.row()].data = data
+    self.dataChanged.emit(index, index)
+    return True
+    
   def headerData(self, section, orientation, role = Qt.DisplayRole):
     if role == Qt.DisplayRole and orientation == Qt.Horizontal:
       return self.headers[section]
     return QVariant()
+
+  def flags(self, index):
+    flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
+    if index.column() == DATA_COL:
+      flags = flags | Qt.ItemIsEditable
+    return flags
 
   def new_packet(self, pack):
     l = len(self.packets)
@@ -97,16 +126,50 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
     self.expr = 'True'
 
   def set_filter(self, e):
-    self.expr = 'True' if len(e)==0 else str(e)
+    self.expr = str(e) or 'True'
     self.invalidateFilter()
 
   def filterAcceptsRow(self, source_row, source_parent):
     index = self.sourceModel().index(source_row, 0, source_parent)
-    packet = self.sourceModel().data(index, 32).toPyObject()
+    packet = self.sourceModel().data(index, Qt.UserRole).toPyObject()
     try:
-      return eval(self.expr, packet.__dict__)
-    except:
+      return bool(eval(self.expr, packet.__dict__))
+    except Exception:
       return False
+
+
+
+
+class HexEditDelegate(QItemDelegate):
+  """ Delegate enabling editing of packet payload """
+  def createEditor(self, parent, option, index):
+    editor = QLineEdit(parent)
+    pack = index.model().data(index, Qt.UserRole).toPyObject()
+    # refuse editing if there's no existing data
+    if not pack.data:
+      return
+    # only accept a series of hex character pairs of the same length
+    # as the existing data. '>' forces uppercase.
+    editor.setInputMask('>' + ' '.join(["HH"] * len(pack.data)))
+    editor.installEventFilter(self)
+    editor.setFont(QFont("monospace"))
+    return editor
+
+  def setEditorData(self, editor, index):
+    text = index.model().data(index)
+    editor.setText(text.toString())
+
+  def setModelData(self, editor, model, index):
+    if editor.hasAcceptableInput():
+      model.setData(index, QVariant(editor.text()))
+
+  def updateEditorGeometry(self, editor, option, index):
+    rect = option.rect
+    # ensure that the frame doesn't conceal any of the text
+    rect.setTop(rect.top()-2)
+    rect.setBottom(rect.bottom()+2)
+    rect.setLeft(rect.left()-1)
+    editor.setGeometry(rect)
 
 
 
@@ -118,6 +181,8 @@ class PacketView(QTreeView):
     QTreeView.__init__(self, parent)
     self.dump_selected_act = QAction("Dump selected", self)
     self.dump_selected_act.triggered.connect(self.dump_selected)
+    self.delegate = HexEditDelegate()
+    self.setItemDelegateForColumn(DATA_COL, self.delegate)
 
   def contextMenuEvent(self, event):
     menu = QMenu()
@@ -211,7 +276,7 @@ class USBView(QApplication):
       try:
         self.dumper.dump(pack.hdr, pack.repack())
         sys.stdout.flush()
-      except:
+      except Exception:
         self.dumper = None
 
 
