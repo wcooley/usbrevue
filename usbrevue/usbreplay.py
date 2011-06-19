@@ -251,24 +251,39 @@ class Replayer(object):
 
 
   def send_usb_packet(self, pack):
-    read_array = []
+    array = []
     ep = usb.util.find_descriptor(iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
 
     # It is safe to decode setup packet if setup flag is 's'
     if pack.flag_setup == 's':
-      bmRequestType, bmRequest, wValue, wIndex, numBytes = pack.data[0:4]
-      bytes_sent = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, numBytes, pack.data[5:]
-      if bytes_sent != num_bytes:
-        print 'Error: %d bytes sent in control transfer and %d bytes actually got there' % (num_bytes, bytes_sent)
+      bmRequestType, bmRequest, wValue, wIndex = pack.data[0:3]
+      if bmRequestType == IN_DIRECTION:  # IN means get bytes to read
+        numbytes = pack.data[4]
+        array = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, numbytes)
+        if len(array) != numbytes:
+          print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(array), numbytes)
+
+      else if bmRequestType == OUT_DIRECTION:
+        array = pack.data[5:] 
+        numbytes = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, array
+        if numbytes != len(array):
+          print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(array))
 
     # Submission means xfer from host to USB device
-    else if pack.type == 'S':        
-      num_bytes = ep.write(pack, TIMEOUT)
-      print 'Wrote %d bytes to USB device', num_bytes, ', expected to write %d bytes ', pack.length
+    else if pack.type == 'S':       
+      array = pack.data[5:]
+      #numbytes = ep.write(self.ep_address, array, self.iface_num, TIMEOUT)
+      numbytes = ep.write(array, TIMEOUT)
+      print 'Wrote %d bytes to USB device', numbytes, ', expected to write %d bytes ', len(array)
+      if numbytes != len(array):
+        print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(array))
 
     else if pack.type == 'C':   # Callback means xfer from USB to host
-      read_array = ep.read(pack.length, TIMEOUT)
-      print '%d data items read.  Data = ', read_array
+      #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
+      array = ep.read(pack.datalen, TIMEOUT)
+      print '%d data items read.  Data = ' % (len(array), array)
+      if numbytes != len(array):
+        print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(array))
 
 
 

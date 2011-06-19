@@ -89,8 +89,7 @@ class Packet(object):
     Print concise packet summary information for debug purposes.  
     Assumes header exists.
     """
-    print ('%s: Captured %d bytes, truncated to %d bytes'
-          % (datetime.datetime.now(), self.hdr.getlen(), self.hdr.getcaplen()))
+    print ('%s: Captured %d bytes, truncated to %d bytes' % (datetime.datetime.now(), self.hdr.getlen(), self.hdr.getcaplen()))
 
 
   def repack(self):
@@ -113,6 +112,8 @@ if __name__ == '__main__':
     if hdr is None:
       break # EOF
     p = Packet(hdr, pack)
+    p.print_pcap_fields()
+    p.print_pcap_summary()
     if len(p.data) > 0:
       p.data[0] = 0x42
     out.dump(hdr, p.repack())
