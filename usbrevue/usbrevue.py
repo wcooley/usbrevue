@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from struct import unpack_from
+import datetime
 
 class Packet(object):
   def __init__(self, hdr, pack):
@@ -40,6 +41,56 @@ class Packet(object):
     datalen = len(pack) - 64
     self.data = list(unpack_from('=%dB' % datalen, pack, 64))
     self.hdr, self.pack = hdr, pack
+
+
+  def print_pcap_fields(self):
+    """ 
+    Print detailed packet information for debug purposes.  
+    Assumes header exists.
+    """
+    print "id = " % (self.id)
+    print "type = " % (self.type)
+    print "xfer_type = " % (self.xfer_type)
+    print "epnum = " % (self.epnum)
+    print "devnum = " % (self.devnum)
+    print "busnum = " % (self.busnum)
+    print "flag_setup = " % (self.flag_setup)
+    print "flag_data = " % (self.flag_data)
+    print "ts_sec = " % (self.ts_sec,)
+    print "ts_usec = " % (self.ts_usec)
+    print "status = " % (self.status)
+    print "length = " % (self.length)
+    print "len_cap = " % (self.len_cap)
+    # setup is only meaningful if flag_setup == 's')
+    if (self.flag_setup == 's'):
+      print "setup = " % (self.setup)
+    # error_count and numdesc are only meaningful for isochronous transfers
+    # (xfer_type == 0)
+    if (self.xfer_type == 0):
+      print "error_count = " % (self.error_count)
+      print "numdesc = " % (self.numdesc)
+    # interval is only meaningful for isochronous or interrupt transfers)
+    # (xfer_type in [0,1]))
+    if (self.xfer_type in [0,1]):
+      print "interval = " % (self.interval)
+    # start_frame is only meaningful for isochronous transfers)
+    if (self.xfer_type == 0):
+      print "start_frame = " % (self.start_frame)
+    print "xfer_flags = " % (self.xfer_flags)
+    print "ndesc = " % (self.ndesc)
+    print "datalen = " % (datalen)
+    print "data = " % (self.data)
+    print "hdr = " % (self.hdr)
+    print "packet = " % (self.pack)
+
+
+  def print_pcap_summary(self):
+    """ 
+    Print concise packet summary information for debug purposes.  
+    Assumes header exists.
+    """
+    print ('%s: Captured %d bytes, truncated to %d bytes'
+          % (datetime.datetime.now(), self.hdr.getlen(), self.hdr.getcaplen()))
 
 
   def repack(self):
