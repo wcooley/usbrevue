@@ -38,7 +38,7 @@ class Modifier(object):
       exp_altered = self.apply_cmdline_exps(packet)
       if routine_altered or exp_altered:
         # TODO: print before/after packet info
-        pass
+        packet.print_pcap_fields()
 
 
 
