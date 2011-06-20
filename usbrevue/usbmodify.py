@@ -4,6 +4,7 @@ import sys
 import pcapy
 import gflags
 import re
+import copy
 from usbrevue import Packet
 
 FLAGS = gflags.FLAGS
@@ -34,25 +35,37 @@ class Modifier(object):
         break # EOF
       packet = Packet(hdr, pack)
 
-      routine_altered = self.apply_routine_file(packet)
-      exp_altered = self.apply_cmdline_exps(packet)
-      if routine_altered or exp_altered:
-        # TODO: print before/after packet info
-        packet.print_pcap_fields()
+      # keep track of which parts of the packet, if any, are modified
+      modified = {}
+      for member in packet.__dict__:
+        modified[member] = False
+      orig_packet = packet.copy()
+      self.apply_routine_file(packet)
+      self.apply_cmdline_exps(packet)
 
+      # figure out which parts of the packet were modified and print out
+      # the changed parts (for debugging)
+      notice_printed = False
+      for member in packet.__dict__:
+        if eval('packet.' + member) != eval('orig_packet.' + member):
+          if not notice_printed:
+            print 'Packet modified'
+            notice_printed = True
+          print str(eval('packet.' + member)) + ' -> ' + str(eval('orig_packet.' + member))
+      if notice_printed:
+        print '\n'
+
+      # this needs to be re-examined once repack() does more than update
+      # the data payload
+      out.dump(packet.hdr, packet.repack())
 
 
   def apply_routine_file(self, packet):
     if self.routine_file is not None:
       execfile(self.routine_file, {}, packet.__dict__)
-      return True
-    return False
 
-    
 
   def apply_cmdline_exps(self, packet):
-    altered = False
-    
     if self.cmdline_exps is not None:
       for exp in self.cmdline_exps:
         max_offset = 0 # highest offset needed to perform this expression
@@ -69,9 +82,6 @@ class Modifier(object):
           # expression
           # TODO: Error checking for non-supported operations/expressions
           exec(exp, {}, packet.__dict__)
-          altered = True
-      return altered
-    return altered
     
 
 if __name__ == "__main__":

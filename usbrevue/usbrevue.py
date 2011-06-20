@@ -42,6 +42,10 @@ class Packet(object):
     self.data = list(unpack_from('=%dB' % datalen, pack, 64))
     self.hdr, self.pack = hdr, pack
 
+  def copy(self):
+    new_packet = Packet(self.hdr, self.pack)
+    return new_packet
+
 
   def print_pcap_fields(self):
     """ 
