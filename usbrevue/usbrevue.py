@@ -48,8 +48,8 @@ class Packet(object):
     Print detailed packet information for debug purposes.  
     Assumes header exists.
     """
-    print "id = " % (self.id)
-    print "type = " % (self.type)
+    print "id = %d" % (self.id)
+    print "type = %s" % (self.type)
     print "xfer_type = " % (self.xfer_type)
     print "epnum = " % (self.epnum)
     print "devnum = " % (self.devnum)
