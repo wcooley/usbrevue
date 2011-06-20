@@ -1,3 +1,8 @@
 .*\.swp$
 .*~$
 .*\.pyc$
+\.orig\..*$
+\.orig$
+\.chg\..*$
+\.rej$
+\.conflict\~$
