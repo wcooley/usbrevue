@@ -4,8 +4,8 @@ import datetime
 
 USB_PACKET_FORMAT = dict(
     # Attr        fmt     offset
-    _id         = ('=Q',  0),
-    _type       = ('=c',  8),
+    id_         = ('=Q',  0),
+    type_       = ('=c',  8),
     xfer_type   = ('=B',  9),
     epnum       = ('=B',  10),
     devnum      = ('=B',  11),
@@ -26,8 +26,8 @@ USB_PACKET_FORMAT = dict(
     ndesc       = ('=I',  60),
 )
 
-# Incomplete - Danny's comments below conflict with the 
-# Linux kernel headers <linux/usb/ch9.h>:
+# Note that the packet transfer type has different numeric identifiers then the
+# endpoint control types in the Linux kernel headers <linux/usb/ch9.h>:
 #define USB_ENDPOINT_XFER_CONTROL       0
 #define USB_ENDPOINT_XFER_ISOC          1
 #define USB_ENDPOINT_XFER_BULK          2
@@ -35,8 +35,9 @@ USB_PACKET_FORMAT = dict(
 USB_TRANSFER_TYPE = dict(
         isochronous = 0,
         interrupt   = 1,
-# ...
-        )
+        control     = 2,
+        bulk        = 3,
+      )
 
 class Packet(object):
 
@@ -47,7 +48,8 @@ class Packet(object):
     self._data = list(unpack_from('=%dB' % self.datalen, pack, 64))
     self._hdr, self._pack = hdr, pack
 
-    if self._type not in ['C', 'S', 'E'] or self.xfer_type not in USB_TRANSFER_TYPE.values():
+    if self.type_ not in ['C', 'S', 'E'] or \
+        self.xfer_type not in USB_TRANSFER_TYPE.values():
       raise RuntimeError("Not a USB Packet")
 
   def datalen(self):
@@ -109,8 +111,8 @@ class Packet(object):
     Print detailed packet information for debug purposes.  
     Assumes header exists.
     """
-    print "id = " % (self.id)
-    print "type = " % (self.type)
+    print "id = " % (self.id_)
+    print "type = " % (self.type_)
     print "xfer_type = " % (self.xfer_type)
     print "epnum = " % (self.epnum)
     print "devnum = " % (self.devnum)
@@ -179,5 +181,3 @@ if __name__ == '__main__':
       p.data[0] = 0x42
     out.dump(hdr, p.repack())
 
-# Really? This is Python, not Ruby....
-# vim:sts=2 sw=2
