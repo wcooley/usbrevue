@@ -2,108 +2,49 @@
 from struct import unpack_from
 import datetime
 
-USB_PACKET_FORMAT = dict(
-    # Attr        fmt     offset
-    id_         = ('=Q',  0),
-    type_       = ('=c',  8),
-    xfer_type   = ('=B',  9),
-    epnum       = ('=B',  10),
-    devnum      = ('=B',  11),
-    busnum      = ('=H',  12),
-    flag_setup  = ('=c',  14),
-    flag_data   = ('=c',  15),
-    ts_sec      = ('=q',  16),
-    ts_usec     = ('=i',  24),
-    status      = ('=i',  28),
-    length      = ('=I',  32),
-    len_cap     = ('=I',  36),
-    setup       = ('=8B', 40),
-    error_count = ('=i',  40),
-    numdesc     = ('=i',  44),
-    interval    = ('=i',  48),
-    start_frame = ('=i',  52),
-    xfer_flags  = ('=I',  56),
-    ndesc       = ('=I',  60),
-)
-
-# Note that the packet transfer type has different numeric identifiers then the
-# endpoint control types in the Linux kernel headers <linux/usb/ch9.h>:
-#define USB_ENDPOINT_XFER_CONTROL       0
-#define USB_ENDPOINT_XFER_ISOC          1
-#define USB_ENDPOINT_XFER_BULK          2
-#define USB_ENDPOINT_XFER_INT           3
-USB_TRANSFER_TYPE = dict(
-        isochronous = 0,
-        interrupt   = 1,
-        control     = 2,
-        bulk        = 3,
-      )
-
 class Packet(object):
-
   def __init__(self, hdr, pack):
     if len(pack) < 64:
       raise RuntimeError("Not a USB Packet")
 
-    self._data = list(unpack_from('=%dB' % self.datalen, pack, 64))
-    self._hdr, self._pack = hdr, pack
+    self.id,          = unpack_from('=Q', pack)
+    self.type,        = unpack_from('=c', pack, 8)
+    self.xfer_type,   = unpack_from('=B', pack, 9)
 
-    if self.type_ not in ['C', 'S', 'E'] or \
-        self.xfer_type not in USB_TRANSFER_TYPE.values():
+    if self.type not in ['C', 'S', 'E'] or self.xfer_type not in range(4):
       raise RuntimeError("Not a USB Packet")
 
-  def datalen(self):
-    return len(self._pack) - 64
-
-  # Generic attribute accessor
-  # Note that we unpack the single item from the tuple in __getattr__ due to
-  # setup()
-  def unpacket(self, attr):
-    fmt, offset = USB_PACKET_FORMAT[attr]
-    return unpack_from(fmt, self._pack, offset)
-
-  def __getattr__(self, attr):
-      return self.unpacket(attr)[0]
-
-  # Special attribute accessors that have additional restrictions
-  def setup(self):
+    self.epnum,       = unpack_from('=B', pack, 10)
+    self.devnum,      = unpack_from('=B', pack, 11)
+    self.busnum,      = unpack_from('=H', pack, 12)
+    self.flag_setup,  = unpack_from('=c', pack, 14)
+    self.flag_data,   = unpack_from('=c', pack, 15)
+    self.ts_sec,      = unpack_from('=q', pack, 16)
+    self.ts_usec,     = unpack_from('=i', pack, 24)
+    self.status,      = unpack_from('=i', pack, 28)
+    self.length,      = unpack_from('=I', pack, 32)
+    self.len_cap,     = unpack_from('=I', pack, 36)
     # setup is only meaningful if flag_setup == 's'
-    if self.flag_setup == 's':
-        return list(self.unpacket('setup'))
-
-  # error_count and numdesc are only meaningful for isochronous transfers
-  # (xfer_type == 0)
-  def error_count(self):
-    if self.is_isochronous_xfer():
-        return self.unpacket('error_count')[0]
-
-  def numdesc(self):
-    if self.is_isochronous_xfer():
-        return self.unpacket('numdesc')[0]
-
-  # interval is only meaningful for isochronous or interrupt transfers
-  # (xfer_type in [0,1])
-  def interval(self):
-    if self.is_isochronous_xfer() or self.is_interrupt_xfer():
-        return self.unpacket('interval')[0]
-
-  def start_frame(self):
+    self.setup = list(unpack_from('=8B', pack, 40))
+    # error_count and numdesc are only meaningful for isochronous transfers
+    # (xfer_type == 0)
+    self.error_count, = unpack_from('=i', pack, 40)
+    self.numdesc,     = unpack_from('=i', pack, 44)
+    # interval is only meaningful for isochronous or interrupt transfers
+    # (xfer_type in [0,1])
+    self.interval,    = unpack_from('=i', pack, 48)
     # start_frame is only meaningful for isochronous transfers
-    if self.is_isochronous_xfer():
-        return self.unpacket('start_frame')[0]
+    self.start_frame, = unpack_from('=i', pack, 52)
+    self.xfer_flags,  = unpack_from('=I', pack, 56)
+    self.ndesc,       = unpack_from('=I', pack, 60)
 
-  # Boolean tests for transfer types
-  def is_isochronous_xfer(self):
-      return self.xfer_type == USB_TRANSFER_TYPE['isochronous']
+    datalen = len(pack) - 64
+    self.data = list(unpack_from('=%dB' % datalen, pack, 64))
+    self.hdr, self.pack = hdr, pack
 
-  def is_bulk_xfer(self):
-      return self.xfer_type == USB_TRANSFER_TYPE['bulk']
-
-  def is_control_xfer(self):
-      return self.xfer_type == USB_TRANSFER_TYPE['control']
-
-  def is_interrupt_xfer(self):
-      return self.xfer_type == USB_TRANSFER_TYPE['interrupt']
+  def copy(self):
+    new_packet = Packet(self.hdr, self.pack)
+    return new_packet
 
 
   def print_pcap_fields(self):
@@ -111,40 +52,42 @@ class Packet(object):
     Print detailed packet information for debug purposes.  
     Assumes header exists.
     """
-    print "id = " % (self.id_)
-    print "type = " % (self.type_)
-    print "xfer_type = " % (self.xfer_type)
-    print "epnum = " % (self.epnum)
-    print "devnum = " % (self.devnum)
-    print "busnum = " % (self.busnum)
-    print "flag_setup = " % (self.flag_setup)
-    print "flag_data = " % (self.flag_data)
-    print "ts_sec = " % (self.ts_sec,)
-    print "ts_usec = " % (self.ts_usec)
-    print "status = " % (self.status)
-    print "length = " % (self.length)
-    print "len_cap = " % (self.len_cap)
+    print "id = %d" % (self.id)
+    print "type = %s" % (self.type)
+    print "xfer_type = %d" % (self.xfer_type)
+    print "epnum = %d" % (self.epnum)
+    print "devnum = %d" % (self.devnum)
+    print "busnum = %d" % (self.busnum)
+    print "flag_setup = %s" % (self.flag_setup)
+    print "flag_data = %s" % (self.flag_data)
+    print "ts_sec = %d" % (self.ts_sec,)
+    print "ts_usec = %d" % (self.ts_usec)
+    print "status = %d" % (self.status)
+    print "length = %d" % (self.length)
+    print "len_cap = %d" % (self.len_cap)
     # setup is only meaningful if flag_setup == 's')
     if (self.flag_setup == 's'):
-      print "setup = " % (self.setup)
+      print "setup = %d" % (self.setup)
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
     if (self.xfer_type == 0):
-      print "error_count = " % (self.error_count)
-      print "numdesc = " % (self.numdesc)
+      print "error_count = %d" % (self.error_count)
+      print "numdesc = %d" % (self.numdesc)
     # interval is only meaningful for isochronous or interrupt transfers)
     # (xfer_type in [0,1]))
     if (self.xfer_type in [0,1]):
-      print "interval = " % (self.interval)
+      print "interval = %d" % (self.interval)
     # start_frame is only meaningful for isochronous transfers)
     if (self.xfer_type == 0):
-      print "start_frame = " % (self.start_frame)
-    print "xfer_flags = " % (self.xfer_flags)
-    print "ndesc = " % (self.ndesc)
-    print "datalen = " % (datalen)
-    print "data = " % (self.data)
-    print "hdr = " % (self.hdr)
-    print "packet = " % (self.pack)
+      print "start_frame = %d" % (self.start_frame)
+    print "xfer_flags = %d" % (self.xfer_flags)
+    print "ndesc = %d" % (self.ndesc)
+    # print "datalen = " % (datalen)
+    # print "data = " % (self.data)
+    print "data =", self.data
+    # print "hdr = " % (self.hdr)
+    print "hdr =", self.hdr
+    # print "packet = " % (self.pack)
 
 
   def print_pcap_summary(self):
