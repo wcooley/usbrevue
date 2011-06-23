@@ -105,46 +105,52 @@ class Packet(object):
   def is_interrupt_xfer(self):
       return self.xfer_type == USB_TRANSFER_TYPE['interrupt']
 
+  def copy(self):
+    new_packet = Packet(self.hdr, self.pack)
+    return new_packet
+
 
   def print_pcap_fields(self):
     """ 
     Print detailed packet information for debug purposes.  
     Assumes header exists.
     """
-    print "id = " % (self.id_)
-    print "type = " % (self.type_)
-    print "xfer_type = " % (self.xfer_type)
-    print "epnum = " % (self.epnum)
-    print "devnum = " % (self.devnum)
-    print "busnum = " % (self.busnum)
-    print "flag_setup = " % (self.flag_setup)
-    print "flag_data = " % (self.flag_data)
-    print "ts_sec = " % (self.ts_sec,)
-    print "ts_usec = " % (self.ts_usec)
-    print "status = " % (self.status)
-    print "length = " % (self.length)
-    print "len_cap = " % (self.len_cap)
+    print "id = %d" % (self.id)
+    print "type = %s" % (self.type)
+    print "xfer_type = %d" % (self.xfer_type)
+    print "epnum = %d" % (self.epnum)
+    print "devnum = %d" % (self.devnum)
+    print "busnum = %d" % (self.busnum)
+    print "flag_setup = %s" % (self.flag_setup)
+    print "flag_data = %s" % (self.flag_data)
+    print "ts_sec = %d" % (self.ts_sec,)
+    print "ts_usec = %d" % (self.ts_usec)
+    print "status = %d" % (self.status)
+    print "length = %d" % (self.length)
+    print "len_cap = %d" % (self.len_cap)
     # setup is only meaningful if flag_setup == 's')
     if (self.flag_setup == 's'):
-      print "setup = " % (self.setup)
+      print "setup = %d" % (self.setup)
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
     if (self.xfer_type == 0):
-      print "error_count = " % (self.error_count)
-      print "numdesc = " % (self.numdesc)
+      print "error_count = %d" % (self.error_count)
+      print "numdesc = %d" % (self.numdesc)
     # interval is only meaningful for isochronous or interrupt transfers)
     # (xfer_type in [0,1]))
     if (self.xfer_type in [0,1]):
-      print "interval = " % (self.interval)
+      print "interval = %d" % (self.interval)
     # start_frame is only meaningful for isochronous transfers)
     if (self.xfer_type == 0):
-      print "start_frame = " % (self.start_frame)
-    print "xfer_flags = " % (self.xfer_flags)
-    print "ndesc = " % (self.ndesc)
-    print "datalen = " % (datalen)
-    print "data = " % (self.data)
-    print "hdr = " % (self.hdr)
-    print "packet = " % (self.pack)
+      print "start_frame = %d" % (self.start_frame)
+    print "xfer_flags = %d" % (self.xfer_flags)
+    print "ndesc = %d" % (self.ndesc)
+    # print "datalen = " % (datalen)
+    # print "data = " % (self.data)
+    print "data =", self.data
+    # print "hdr = " % (self.hdr)
+    print "hdr =", self.hdr
+    # print "packet = " % (self.pack)
 
 
   def print_pcap_summary(self):
