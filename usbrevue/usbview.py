@@ -3,7 +3,9 @@
 import sys
 import pcapy
 from usbrevue import Packet
-from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, QAbstractTableModel, QModelIndex
+from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
+                         QAbstractTableModel, QModelIndex, \
+                         QPersistentModelIndex
 from PyQt4.QtGui import *
 
 
@@ -109,6 +111,19 @@ class PacketModel(QAbstractTableModel):
       flags = flags | Qt.ItemIsEditable
     return flags
 
+  def removeRows(self, first, count, parent = None):
+    last = first + count - 1
+    self.beginRemoveRows(QModelIndex(), first, last)
+    self.packets = self.packets[:first] + self.packets[last+1:]
+    self.endRemoveRows()
+    return True
+
+  def clear(self):
+    self.beginResetModel()
+    self.packets = []
+    self.first_ts = 0
+    self.endResetModel()
+
   def new_packet(self, pack):
     l = len(self.packets)
     self.first_ts = self.first_ts or pack.ts_sec
@@ -136,6 +151,9 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
       return bool(eval(self.expr, packet.__dict__))
     except Exception:
       return False
+
+  def clear(self):
+    self.sourceModel().clear()
 
 
 
@@ -181,22 +199,38 @@ class PacketView(QTreeView):
     QTreeView.__init__(self, parent)
     self.dump_selected_act = QAction("Dump selected", self)
     self.dump_selected_act.triggered.connect(self.dump_selected)
+    self.remove_selected_act = QAction("Remove selected", self)
+    self.remove_selected_act.triggered.connect(self.remove_selected)
+    self.remove_selected_act.setShortcut(QKeySequence.Delete)
+    self.addAction(self.remove_selected_act)
+    self.remove_all_act = QAction("Remove all", self)
+    self.remove_all_act.triggered.connect(self.remove_all)
     self.delegate = HexEditDelegate()
     self.setItemDelegateForColumn(DATA_COL, self.delegate)
 
   def contextMenuEvent(self, event):
     menu = QMenu()
     menu.addAction(self.dump_selected_act)
+    menu.addSeparator()
+    menu.addAction(self.remove_selected_act)
+    menu.addAction(self.remove_all_act)
     menu.exec_(event.globalPos())
 
+  def remove_selected(self):
+    rows = self.selectionModel().selectedRows()
+    rows = map(lambda x: QPersistentModelIndex(x), rows)
+    for idx in rows:
+      self.model().removeRow(idx.row())
+
+  def remove_all(self):
+    self.model().clear()
+
   def dump_selected(self):
-    # selectedIndexes() gives an index for each column in a selected row
-    # filter out all but column 0
-    selected = filter(lambda x: x.column() == 0, self.selectedIndexes())
+    selected = self.selectionModel().selectedRows()
     # sort by row - dump packets in the order they appear
     selected.sort(cmp=lambda x,y: cmp(x.row(), y.row()))
-    for i in selected:
-      packet = self.model().data(i, 32).toPyObject()
+    for idx in selected:
+      packet = self.model().data(idx, 32).toPyObject()
       self.dump_packet.emit(packet)
     
     
@@ -263,7 +297,6 @@ class USBView(QApplication):
     # TODO make this togglable from the gui
     #self.pcapthread.new_packet.connect(self.dump_packet)
     self.pcapthread.dump_opened.connect(self.dump_opened)
-    self.pcapthread.moveToThread(self.pcapthread)
     self.pcapthread.start()
 
     self.dumper = None
