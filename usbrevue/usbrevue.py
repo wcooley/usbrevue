@@ -43,17 +43,14 @@ USB_TRANSFER_TYPE = dict(
 class Packet(object):
 
   def __init__(self, hdr, pack):
-    if len(pack) < 64:
-      raise RuntimeError("Not a USB Packet")
+#    if len(pack) < 64:
+#      raise RuntimeError("Not a USB Packet")
 
     self._hdr, self._pack = hdr, pack
 
     if self.type_ not in ['C', 'S', 'E'] or \
         self.xfer_type not in USB_TRANSFER_TYPE.values():
       raise RuntimeError("Not a USB Packet")
-
-  def datalen(self):
-    return len(self._pack) - 64
 
   # Generic attribute accessor
   # Note that we unpack the single item from the tuple in __getattr__ due to
@@ -66,10 +63,16 @@ class Packet(object):
   def __getattr__(self, attr):
       return self.unpacket(attr)[0]
 
+  @property
+  def datalen(self):
+    return len(self._pack) - 64
+
   # Special attribute accessors that have additional restrictions
+  @property
   def data(self):
       return list(self.unpacket('data', self.datalen))
 
+  @property
   def setup(self):
     # setup is only meaningful if flag_setup == 's'
     if self.flag_setup == 's':
@@ -77,20 +80,24 @@ class Packet(object):
 
   # error_count and numdesc are only meaningful for isochronous transfers
   # (xfer_type == 0)
+  @property
   def error_count(self):
     if self.is_isochronous_xfer():
         return self.unpacket('error_count')[0]
 
+  @property
   def numdesc(self):
     if self.is_isochronous_xfer():
         return self.unpacket('numdesc')[0]
 
   # interval is only meaningful for isochronous or interrupt transfers
   # (xfer_type in [0,1])
+  @property
   def interval(self):
     if self.is_isochronous_xfer() or self.is_interrupt_xfer():
         return self.unpacket('interval')[0]
 
+  @property
   def start_frame(self):
     # start_frame is only meaningful for isochronous transfers
     if self.is_isochronous_xfer():
