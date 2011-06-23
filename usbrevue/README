@@ -1,0 +1,15 @@
+
+===================
+System Requirements
+===================
+
+The USB REVue toolset was developed and tested under Ubuntu 10.04 and 11.04.
+Some aspects work in 10.04 and some are known to not work. For other distros,
+YMMV, depending on whether the minimum requirements are met.
+
+    * tcpdump (corresponding with libpcap)
+    * libpcap 1.1.0 (1.0.0 is known to not work)
+        - 1.0.0 uses the read(2) interface to usbmon, which does not result in
+          a complete capture.
+    * python-pcapy
+    * python-qt4
