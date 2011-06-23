@@ -24,6 +24,7 @@ USB_PACKET_FORMAT = dict(
     start_frame = ('=i',  52),
     xfer_flags  = ('=I',  56),
     ndesc       = ('=I',  60),
+    data        = ('=%dB', 64),
 )
 
 # Note that the packet transfer type has different numeric identifiers then the
@@ -45,7 +46,6 @@ class Packet(object):
     if len(pack) < 64:
       raise RuntimeError("Not a USB Packet")
 
-    self._data = list(unpack_from('=%dB' % self.datalen, pack, 64))
     self._hdr, self._pack = hdr, pack
 
     if self.type_ not in ['C', 'S', 'E'] or \
@@ -58,14 +58,18 @@ class Packet(object):
   # Generic attribute accessor
   # Note that we unpack the single item from the tuple in __getattr__ due to
   # setup()
-  def unpacket(self, attr):
+  def unpacket(self, attr, fmtx=None):
     fmt, offset = USB_PACKET_FORMAT[attr]
+    if fmtx: fmt %= fmtx
     return unpack_from(fmt, self._pack, offset)
 
   def __getattr__(self, attr):
       return self.unpacket(attr)[0]
 
   # Special attribute accessors that have additional restrictions
+  def data(self):
+      return list(self.unpacket('data', self.datalen))
+
   def setup(self):
     # setup is only meaningful if flag_setup == 's'
     if self.flag_setup == 's':
