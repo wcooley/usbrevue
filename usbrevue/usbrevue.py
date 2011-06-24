@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import sys
+
 from struct import unpack_from
 import datetime
 
@@ -57,7 +59,7 @@ class Packet(object):
   # setup()
   def unpacket(self, attr, fmtx=None):
     fmt, offset = USB_PACKET_FORMAT[attr]
-    if fmtx: fmt %= fmtx
+    if fmtx != None: fmt %= fmtx
     return unpack_from(fmt, self._pack, offset)
 
   def __getattr__(self, attr):
