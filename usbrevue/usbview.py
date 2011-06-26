@@ -205,6 +205,12 @@ class PacketView(QTreeView):
     self.addAction(self.remove_selected_act)
     self.remove_all_act = QAction("Remove all", self)
     self.remove_all_act.triggered.connect(self.remove_all)
+    self.passthru_toggle = QAction("Passthrough", self)
+    self.passthru_toggle.setCheckable(True)
+    self.passthru_toggle.setChecked(True)
+    self.autoscroll_toggle = QAction("Autoscroll", self)
+    self.autoscroll_toggle.setCheckable(True)
+    self.autoscroll_toggle.setChecked(False)
     self.delegate = HexEditDelegate()
     self.setItemDelegateForColumn(DATA_COL, self.delegate)
 
@@ -214,6 +220,9 @@ class PacketView(QTreeView):
     menu.addSeparator()
     menu.addAction(self.remove_selected_act)
     menu.addAction(self.remove_all_act)
+    menu.addSeparator()
+    menu.addAction(self.autoscroll_toggle)
+    menu.addAction(self.passthru_toggle)
     menu.exec_(event.globalPos())
 
   def remove_selected(self):
@@ -225,8 +234,13 @@ class PacketView(QTreeView):
   def remove_all(self):
     self.model().clear()
 
+  def new_row(self, parent, start, end):
+    if self.autoscroll_toggle.isChecked():
+      self.scrollToBottom()
+
   def dump_selected(self):
     selected = self.selectionModel().selectedRows()
+    self.passthru_toggle.setChecked(False)
     # sort by row - dump packets in the order they appear
     selected.sort(cmp=lambda x,y: cmp(x.row(), y.row()))
     for idx in selected:
@@ -281,6 +295,8 @@ class USBView(QApplication):
     self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
     self.packetview.setUniformRowHeights(True)
     self.packetview.dump_packet.connect(self.dump_packet)
+    self.proxy.rowsInserted.connect(self.packetview.new_row)
+    self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
 
     self.filterpane = FilterWidget()
     self.filterpane.new_filter.connect(self.proxy.set_filter)
@@ -293,16 +309,22 @@ class USBView(QApplication):
 
     self.pcapthread = PcapThread()
     self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
-    # uncomment for pass-through
-    # TODO make this togglable from the gui
-    #self.pcapthread.new_packet.connect(self.dump_packet)
+    self.pcapthread.new_packet.connect(self.new_packet)
     self.pcapthread.dump_opened.connect(self.dump_opened)
     self.pcapthread.start()
 
     self.dumper = None
+    self.passthru = True
 
   def dump_opened(self, dumper):
     self.dumper = dumper
+
+  def passthru_toggled(self, state):
+    self.passthru = state
+  
+  def new_packet(self, packet):
+    if self.passthru:
+      self.dump_packet(packet)
 
   def dump_packet(self, pack):
     if self.dumper is not None:
