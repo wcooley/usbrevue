@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from struct import unpack_from, pack
+from struct import unpack_from, pack_into
+import array
 import datetime
 
 class Packet(object):
@@ -105,29 +106,36 @@ class Packet(object):
         Returns a binary string of the packet information. Currently
         ignores changes to anything but data.
         """
-        modified_pack = []
-        modified_pack.append(pack('=Q', self.id))
-        modified_pack.append(pack('=c', self.type))
-        modified_pack.append(pack('=B', self.xfer_type))
-        modified_pack.append(pack('=B', self.epnum))
-        modified_pack.append(pack('=B', self.devnum))
-        modified_pack.append(pack('=H', self.busnum))
-        modified_pack.append(pack('=c', self.flag_setup))
-        modified_pack.append(pack('=c', self.flag_data))
-        modified_pack.append(pack('=q', self.ts_sec))
-        modified_pack.append(pack('=i', self.ts_usec))
-        modified_pack.append(pack('=i', self.status))
-        modified_pack.append(pack('=I', self.length))
-        modified_pack.append(pack('=I', self.len_cap))
-        modified_pack.append(''.join(map(chr, self.setup)))
-        modified_pack.append(pack('=i', self.error_count))
-        modified_pack.append(pack('=i', self.numdesc))
-        modified_pack.append(pack('=i', self.interval))
-        modified_pack.append(pack('=i', self.start_frame))
-        modified_pack.append(pack('=I', self.xfer_flags))
-        modified_pack.append(pack('=I', self.ndesc))
-        modified_pack.append(''.join(map(chr, self.data)))
-        return modified_pack
+        modified_pack = array.array('c', '\0' * 64)
+
+        pack_into('=Q', modified_pack, 0, self.id)
+        pack_into('=c', modified_pack, 8, self.type)
+        pack_into('=B', modified_pack, 9, self.xfer_type)
+        pack_into('=B', modified_pack, 10, self.epnum)
+        pack_into('=B', modified_pack, 11, self.devnum)
+        pack_into('=H', modified_pack, 12, self.busnum)
+        pack_into('=c', modified_pack, 14, self.flag_setup)
+        pack_into('=c', modified_pack, 15, self.flag_data)
+        pack_into('=q', modified_pack, 16, self.ts_sec)
+        pack_into('=i', modified_pack, 24, self.ts_usec)
+        pack_into('=i', modified_pack, 28, self.status)
+        pack_into('=I', modified_pack, 32, self.length)
+        pack_into('=I', modified_pack, 36, self.len_cap)
+        if self.flag_setup == 's':
+            i = 40
+            for c in setup:
+                modified_pack[i] = chr(c)
+                i += 1
+        else:
+            pack_into('=i', modified_pack, 40, self.error_count)
+            pack_into('=i', modified_pack, 44, self.numdesc)
+        pack_into('=i', modified_pack, 48, self.interval)
+        pack_into('=i', modified_pack, 52, self.start_frame)
+        pack_into('=I', modified_pack, 56, self.xfer_flags)
+        pack_into('=I', modified_pack, 60, self.ndesc)
+
+        # return self.pack[:64] + ''.join(map(chr, self.data))
+        return modified_pack.tostring() + ''.join(map(chr, self.data))
         
 
 if __name__ == '__main__':
