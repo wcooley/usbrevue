@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from struct import unpack_from
+from struct import unpack_from, pack
 import datetime
 
 class Packet(object):
@@ -105,7 +105,29 @@ class Packet(object):
         Returns a binary string of the packet information. Currently
         ignores changes to anything but data.
         """
-        return self.pack[:64] + ''.join(map(chr, self.data))
+        modified_pack = []
+        modified_pack.append(pack('=Q', self.id))
+        modified_pack.append(pack('=c', self.type))
+        modified_pack.append(pack('=B', self.xfer_type))
+        modified_pack.append(pack('=B', self.epnum))
+        modified_pack.append(pack('=B', self.devnum))
+        modified_pack.append(pack('=H', self.busnum))
+        modified_pack.append(pack('=c', self.flag_setup))
+        modified_pack.append(pack('=c', self.flag_data))
+        modified_pack.append(pack('=q', self.ts_sec))
+        modified_pack.append(pack('=i', self.ts_usec))
+        modified_pack.append(pack('=i', self.status))
+        modified_pack.append(pack('=I', self.length))
+        modified_pack.append(pack('=I', self.len_cap))
+        modified_pack.append(''.join(map(chr, self.setup)))
+        modified_pack.append(pack('=i', self.error_count))
+        modified_pack.append(pack('=i', self.numdesc))
+        modified_pack.append(pack('=i', self.interval))
+        modified_pack.append(pack('=i', self.start_frame))
+        modified_pack.append(pack('=I', self.xfer_flags))
+        modified_pack.append(pack('=I', self.ndesc))
+        modified_pack.append(''.join(map(chr, self.data)))
+        return modified_pack
         
 
 if __name__ == '__main__':
