@@ -67,8 +67,6 @@ class Modifier(object):
                 sys.stderr.write(str(e) + '\n')
                 sys.exit(1)
 
-                
-
 
     def apply_routine_file(self, packet):
         if self.routine_file is not None:
@@ -88,10 +86,13 @@ class Modifier(object):
                             max_offset = int(match.group(1))
 
                 if len(packet.data) > max_offset:
-                    # TODO: Add regex so user can specify logical xor directly in the
-                    # expression
-                    # TODO: Error checking for non-supported operations/expressions
-                    exec(exp, {}, packet.__dict__)
+                      exec(exp, {}, packet.__dict__)
+
+
+    # accessors and mutators
+    def get_num_modified(self):
+        return self.num_modified
+
 
 
 def quit(num_modified):
@@ -125,6 +126,6 @@ if __name__ == "__main__":
     try:
         modifier.run()
     except (KeyboardInterrupt, SystemExit):
-        quit(modifier.num_modified)
+        quit(modifier.get_num_modified())
 
-    quit(modifier.num_modified)
+    quit(modifier.get_num_modified())
