@@ -75,7 +75,8 @@ class Packet(object):
     def __setattr__(self, attr, val):
         raise NotImplementedError("setter %s = %s" % (attr, val))
 
-    def get_field_dict(self):
+    @property
+    def field_dict(self):
         """Return a dict of attributes and values."""
         pdict = dict()
 
@@ -84,7 +85,8 @@ class Packet(object):
 
         return pdict
 
-    def get_fields(self):
+    @property
+    def fields(self):
         """Return a list of packet header fields"""
         return [ attr for attr in USBMON_PACKET_FORMAT ]
 
