@@ -148,7 +148,7 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
         index = self.sourceModel().index(source_row, 0, source_parent)
         packet = self.sourceModel().data(index, Qt.UserRole).toPyObject()
         try:
-            return bool(eval(self.expr, packet.__dict__))
+            return bool(eval(self.expr, packet.field_dict))
         except Exception:
             return False
 

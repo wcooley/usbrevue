@@ -34,7 +34,7 @@ class Modifier(object):
 
             # keep track of which parts of the packet, if any, are modified
             modified = {}
-            for member in packet.__dict__:
+            for member in packet.fields:
                 modified[member] = False
             orig_packet = packet.copy()
             self.apply_routine_file(packet)
@@ -43,7 +43,7 @@ class Modifier(object):
             # figure out which parts of the packet were modified and print out
             # the changed parts (for debugging)
             notice_printed = False
-            for member in packet.__dict__:
+            for member in packet.fields:
                 if eval('packet.' + member) != eval('orig_packet.' + member):
                     if not notice_printed:
                         print 'Packet modified'
@@ -60,7 +60,7 @@ class Modifier(object):
 
     def apply_routine_file(self, packet):
         if self.routine_file is not None:
-            execfile(self.routine_file, {}, packet.__dict__)
+            execfile(self.routine_file, {}, packet.fields)
 
 
     def apply_cmdline_exps(self, packet):
@@ -79,7 +79,7 @@ class Modifier(object):
                     # TODO: Add regex so user can specify logical xor directly in the
                     # expression
                     # TODO: Error checking for non-supported operations/expressions
-                    exec(exp, {}, packet.__dict__)
+                    exec(exp, {}, packet.fields)
 
 if __name__ == "__main__":
     # Open a pcap file from stdin, apply the user-supplied modification to
