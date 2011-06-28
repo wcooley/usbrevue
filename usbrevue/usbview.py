@@ -74,7 +74,7 @@ class PacketModel(QAbstractTableModel):
             if col == TIMESTAMP_COL:
                 return "%d.%06d" % (pack.ts_sec - self.first_ts, pack.ts_usec)
             elif col == URB_COL:
-                return "%016X" % pack.id_
+                return "%016X" % pack.urb
             elif col == ADDRESS_COL:
                 return "%d:%d:%x (%s%s)" % (pack.busnum, pack.devnum, pack.epnum,
                                             "ZICB"[pack.xfer_type],

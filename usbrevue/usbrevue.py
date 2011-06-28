@@ -6,7 +6,7 @@ import datetime
 
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
-    id_         = ('=Q',  0),
+    urb         = ('=Q',  0),
     type_       = ('=c',  8),
     xfer_type   = ('=B',  9),
     epnum       = ('=B',  10),
@@ -151,7 +151,7 @@ class Packet(object):
         Print detailed packet information for debug purposes.
         Assumes header exists.
         """
-        print "id = %d" % (self.id)
+        print "urb = %d" % (self.urb)
         print "type = %s" % (self.type)
         print "xfer_type = %d" % (self.xfer_type)
         print "epnum = %d" % (self.epnum)
