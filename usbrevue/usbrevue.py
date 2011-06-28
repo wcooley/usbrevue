@@ -75,6 +75,22 @@ class Packet(object):
     def __setattr__(self, attr, val):
         raise NotImplementedError("setter %s = %s" % (attr, val))
 
+    def diff(self, other):
+        """Compare self with other packet.
+
+        Return list of 3-tuples of (attr, my_val, other_val)."""
+
+        result = list()
+
+        for f in self.fields:
+            m = getattr(self, f)
+            o = getattr(other, f)
+
+            if m != o:
+                result.append((f, m, o))
+
+        return result
+
     @property
     def field_dict(self):
         """Return a dict of attributes and values."""
