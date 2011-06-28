@@ -4,7 +4,7 @@ import sys
 from struct import unpack_from
 import datetime
 
-USB_PACKET_FORMAT = dict(
+USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
     id_         = ('=Q',  0),
     type_       = ('=c',  8),
@@ -35,7 +35,7 @@ USB_PACKET_FORMAT = dict(
 #define USB_ENDPOINT_XFER_ISOC          1
 #define USB_ENDPOINT_XFER_BULK          2
 #define USB_ENDPOINT_XFER_INT           3
-USB_TRANSFER_TYPE = dict(
+USBMON_TRANSFER_TYPE = dict(
     isochronous = 0,
     interrupt   = 1,
     control     = 2,
@@ -53,7 +53,7 @@ class Packet(object):
             self.__dict__['_hdr'], self.__dict__['_pack'] = hdr, pack
 
             if self.type_ not in ['C', 'S', 'E'] or \
-                    self.xfer_type not in USB_TRANSFER_TYPE.values():
+                    self.xfer_type not in USBMON_TRANSFER_TYPE.values():
                 raise RuntimeError("Not a USB Packet")
 
         self.__dict__['_cache'] = dict()
@@ -62,7 +62,7 @@ class Packet(object):
     # Note that we unpack the single item from the tuple in __getattr__ due to
     # setup()
     def unpacket(self, attr, fmtx=None):
-        fmt, offset = USB_PACKET_FORMAT[attr]
+        fmt, offset = USBMON_PACKET_FORMAT[attr]
         if fmtx != None: fmt %= fmtx
         return unpack_from(fmt, self._pack, offset)
 
@@ -79,14 +79,14 @@ class Packet(object):
         """Return a dict of attributes and values."""
         pdict = dict()
 
-        for attr in USB_PACKET_FORMAT:
+        for attr in USBMON_PACKET_FORMAT:
             pdict[attr] = getattr(self, attr)
 
         return pdict
 
     def get_fields(self):
         """Return a list of packet header fields"""
-        return [ attr for attr in USB_PACKET_FORMAT ]
+        return [ attr for attr in USBMON_PACKET_FORMAT ]
 
     @property
     def datalen(self):
@@ -130,16 +130,16 @@ class Packet(object):
 
     # Boolean tests for transfer types
     def is_isochronous_xfer(self):
-        return self.xfer_type == USB_TRANSFER_TYPE['isochronous']
+        return self.xfer_type == USBMON_TRANSFER_TYPE['isochronous']
 
     def is_bulk_xfer(self):
-        return self.xfer_type == USB_TRANSFER_TYPE['bulk']
+        return self.xfer_type == USBMON_TRANSFER_TYPE['bulk']
 
     def is_control_xfer(self):
-        return self.xfer_type == USB_TRANSFER_TYPE['control']
+        return self.xfer_type == USBMON_TRANSFER_TYPE['control']
 
     def is_interrupt_xfer(self):
-        return self.xfer_type == USB_TRANSFER_TYPE['interrupt']
+        return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
     def copy(self):
         new_packet = Packet(self.hdr, self.pack)
