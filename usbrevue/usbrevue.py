@@ -44,15 +44,17 @@ USB_TRANSFER_TYPE = dict(
 
 class Packet(object):
 
-    def __init__(self, hdr, pack):
-#    if len(pack) < 64:
-#      raise RuntimeError("Not a USB Packet")
+    def __init__(self, hdr=None, pack=None):
 
-        self._hdr, self._pack = hdr, pack
+        if None not in (hdr, pack):
+            if len(pack) < 64:
+                raise RuntimeError("Not a USB Packet")
 
-        if self.type_ not in ['C', 'S', 'E'] or \
-                self.xfer_type not in USB_TRANSFER_TYPE.values():
-            raise RuntimeError("Not a USB Packet")
+            self._hdr, self._pack = hdr, pack
+
+            if self.type_ not in ['C', 'S', 'E'] or \
+                    self.xfer_type not in USB_TRANSFER_TYPE.values():
+                raise RuntimeError("Not a USB Packet")
 
     # Generic attribute accessor
     # Note that we unpack the single item from the tuple in __getattr__ due to
