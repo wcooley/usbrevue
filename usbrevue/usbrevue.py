@@ -56,6 +56,8 @@ class Packet(object):
                     self.xfer_type not in USB_TRANSFER_TYPE.values():
                 raise RuntimeError("Not a USB Packet")
 
+        self.__dict__['_cache'] = dict()
+
     # Generic attribute accessor
     # Note that we unpack the single item from the tuple in __getattr__ due to
     # setup()
@@ -65,7 +67,10 @@ class Packet(object):
         return unpack_from(fmt, self._pack, offset)
 
     def __getattr__(self, attr):
-        return self.unpacket(attr)[0]
+        if self._cache.has_key(attr):
+            return self._cache[attr]
+        else:
+            self.unpacket(attr)[0]
 
     def __setattr__(self, attr, val):
         raise NotImplementedError("setter %s = %s" % (attr, val))
