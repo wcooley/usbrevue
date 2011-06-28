@@ -75,6 +75,19 @@ class Packet(object):
     def __setattr__(self, attr, val):
         raise NotImplementedError("setter %s = %s" % (attr, val))
 
+    def get_field_dict(self):
+        """Return a dict of attributes and values."""
+        pdict = dict()
+
+        for attr in USB_PACKET_FORMAT:
+            pdict[attr] = getattr(self, attr)
+
+        return pdict
+
+    def get_fields(self):
+        """Return a list of packet header fields"""
+        return [ attr for attr in USB_PACKET_FORMAT ]
+
     @property
     def datalen(self):
         return len(self._pack) - 64
