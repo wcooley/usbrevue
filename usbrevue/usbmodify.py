@@ -1,21 +1,30 @@
 #!/usr/bin/env python
+"""This is the USB Modifier module. It lets the user modify USB
+packets programmatically by specifying one or more routines to be
+applied to each packet in a pcap stream/file.
+
+"""
 
 import sys
 import pcapy
 import gflags
 import re
-import copy
 from usbrevue import Packet
 
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string('routine', None, 'Filename containing your modification routine.')
 gflags.DEFINE_list('exp', None, 'A comma-separated list of expressions to be applied at data payload byte offsets. Offsets are referenced as "data[0], data[1], ...". Arithmetic operators (+, -, *, /), logical operators (and, or, not), and bitwise operators (^, &, |, !) are supported. For logical xor, use "bool(a) ^ bool(b)".')
-gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified')
+gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified.')
 
 
 
 class Modifier(object):
+    """This class implements all modifier functionality. Does not
+    interface with pcapy; instead, it expects to receive pcapy Reader
+    and Dumper objects to work with.
+
+    """
     def __init__(self, pcap, routine_file, cmdline_exps, out=None):
         self.pcap = pcap
         self.out = out
@@ -24,7 +33,11 @@ class Modifier(object):
         self.num_modified = 0 # keep track of the number of modified packets
 
     def run(self):
+        """Continuously read packets, apply the modification
+        routine(s), and write out all packets, whether modified or
+        not.
 
+        """
         # continuously read packets, apply the modification routine, and write out
         while True:
             (hdr, pack) = pcap.next()
@@ -56,24 +69,24 @@ class Modifier(object):
                             sys.stderr.write('\n')
 
             # pass all packets, modified or not, to the dumper
-            # this needs to be re-examined once repack() does more than update
-            # the data payload
             try:
                 modified_pack = packet.repack()
                 if not sys.stdout.isatty():
                     out.dump(packet.hdr, modified_pack)
-            except ValueError as e:
+            except ValueError as valerr:
                 sys.stderr.write('There was an error converting a packet to a binary string:\n')
-                sys.stderr.write(str(e) + '\n')
+                sys.stderr.write(str(valerr) + '\n')
                 sys.exit(1)
 
 
     def apply_routine_file(self, packet):
+        """Apply the user-supplied external routine file to a packet."""
         if self.routine_file is not None:
             execfile(self.routine_file, {}, packet.__dict__)
 
 
     def apply_cmdline_exps(self, packet):
+        """Apply the expression supplied at the command line to a packet."""
         if self.cmdline_exps is not None:
             for exp in self.cmdline_exps:
                 max_offset = 0 # highest offset needed to perform this expression
@@ -86,16 +99,26 @@ class Modifier(object):
                             max_offset = int(match.group(1))
 
                 if len(packet.data) > max_offset:
-                      exec(exp, {}, packet.__dict__)
+                    exec(exp, {}, packet.__dict__)
 
 
     # accessors and mutators
     def get_num_modified(self):
+        """Get the number of packets modified so far by the Modifier object."""
         return self.num_modified
 
 
+    def set_routine_file(self, filestr):
+        """Set the name of the user-supplied external routine file."""
+        self.routine_file = filestr
 
-def quit(num_modified):
+
+
+def end_modifier(num_modified):
+    """Display the number of modified packets (passed as parameter)
+    and exit normally.
+
+    """
     sys.stderr.write('\nSuccessfully modified ' + str(num_modified) + ' packets\n')
     sys.exit(0)
 
@@ -126,6 +149,6 @@ if __name__ == "__main__":
     try:
         modifier.run()
     except (KeyboardInterrupt, SystemExit):
-        quit(modifier.get_num_modified())
+        end_modifier(modifier.get_num_modified())
 
-    quit(modifier.get_num_modified())
+    end_modifier(modifier.get_num_modified())
