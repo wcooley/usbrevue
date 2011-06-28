@@ -7,7 +7,7 @@ import datetime
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
     urb         = ('=Q',  0),
-    type_       = ('=c',  8),
+    event_type  = ('=c',  8),
     xfer_type   = ('=B',  9),
     epnum       = ('=B',  10),
     devnum      = ('=B',  11),
@@ -52,7 +52,7 @@ class Packet(object):
 
             self.__dict__['_hdr'], self.__dict__['_pack'] = hdr, pack
 
-            if self.type_ not in ['C', 'S', 'E'] or \
+            if self.event_type not in ['C', 'S', 'E'] or \
                     self.xfer_type not in USBMON_TRANSFER_TYPE.values():
                 raise RuntimeError("Not a USB Packet")
 
@@ -170,7 +170,7 @@ class Packet(object):
         Assumes header exists.
         """
         print "urb = %d" % (self.urb)
-        print "type = %s" % (self.type)
+        print "event_type = %s" % (self.event_type)
         print "xfer_type = %d" % (self.xfer_type)
         print "epnum = %d" % (self.epnum)
         print "devnum = %d" % (self.devnum)
