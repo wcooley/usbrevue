@@ -60,7 +60,7 @@ class Modifier(object):
 
     def apply_routine_file(self, packet):
         if self.routine_file is not None:
-            execfile(self.routine_file, {}, packet.fields)
+            execfile(self.routine_file, {}, packet.field_dict)
 
 
     def apply_cmdline_exps(self, packet):
@@ -79,7 +79,8 @@ class Modifier(object):
                     # TODO: Add regex so user can specify logical xor directly in the
                     # expression
                     # TODO: Error checking for non-supported operations/expressions
-                    exec(exp, {}, packet.fields)
+                    print packet.field_dict
+                    exec(exp, {}, packet.field_dict)
 
 if __name__ == "__main__":
     # Open a pcap file from stdin, apply the user-supplied modification to
