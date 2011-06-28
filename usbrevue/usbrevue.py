@@ -63,7 +63,7 @@ class Packet(object):
         return unpack_from(fmt, self._pack, offset)
 
     def __getattr__(self, attr):
-		return self.unpacket(attr)[0]
+        return self.unpacket(attr)[0]
 
     @property
     def datalen(self):
@@ -72,51 +72,51 @@ class Packet(object):
     # Special attribute accessors that have additional restrictions
     @property
     def data(self):
-            return list(self.unpacket('data', self.datalen))
+        return list(self.unpacket('data', self.datalen))
 
     @property
     def setup(self):
         # setup is only meaningful if flag_setup == 's'
         if self.flag_setup == 's':
-			return list(self.unpacket('setup'))
+            return list(self.unpacket('setup'))
 
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
     @property
     def error_count(self):
         if self.is_isochronous_xfer():
-			return self.unpacket('error_count')[0]
+            return self.unpacket('error_count')[0]
 
     @property
     def numdesc(self):
         if self.is_isochronous_xfer():
-			return self.unpacket('numdesc')[0]
+            return self.unpacket('numdesc')[0]
 
     # interval is only meaningful for isochronous or interrupt transfers
     # (xfer_type in [0,1])
     @property
     def interval(self):
         if self.is_isochronous_xfer() or self.is_interrupt_xfer():
-			return self.unpacket('interval')[0]
+            return self.unpacket('interval')[0]
 
     @property
     def start_frame(self):
         # start_frame is only meaningful for isochronous transfers
         if self.is_isochronous_xfer():
-			return self.unpacket('start_frame')[0]
+            return self.unpacket('start_frame')[0]
 
     # Boolean tests for transfer types
     def is_isochronous_xfer(self):
-		return self.xfer_type == USB_TRANSFER_TYPE['isochronous']
+        return self.xfer_type == USB_TRANSFER_TYPE['isochronous']
 
     def is_bulk_xfer(self):
-		return self.xfer_type == USB_TRANSFER_TYPE['bulk']
+        return self.xfer_type == USB_TRANSFER_TYPE['bulk']
 
     def is_control_xfer(self):
-		return self.xfer_type == USB_TRANSFER_TYPE['control']
+        return self.xfer_type == USB_TRANSFER_TYPE['control']
 
     def is_interrupt_xfer(self):
-		return self.xfer_type == USB_TRANSFER_TYPE['interrupt']
+        return self.xfer_type == USB_TRANSFER_TYPE['interrupt']
 
     def copy(self):
         new_packet = Packet(self.hdr, self.pack)
