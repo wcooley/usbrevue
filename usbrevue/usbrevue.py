@@ -50,7 +50,7 @@ class Packet(object):
             if len(pack) < 64:
                 raise RuntimeError("Not a USB Packet")
 
-            self._hdr, self._pack = hdr, pack
+            self.__dict__['_hdr'], self.__dict__['_pack'] = hdr, pack
 
             if self.type_ not in ['C', 'S', 'E'] or \
                     self.xfer_type not in USB_TRANSFER_TYPE.values():
@@ -66,6 +66,9 @@ class Packet(object):
 
     def __getattr__(self, attr):
         return self.unpacket(attr)[0]
+
+    def __setattr__(self, attr, val):
+        raise NotImplementedError("setter %s = %s" % (attr, val))
 
     @property
     def datalen(self):
