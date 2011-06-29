@@ -87,6 +87,12 @@ class Packet(object):
             del self._cache[attr]
         self.repacket(attr, [val])
 
+    def __getitem__(self, attr):
+        return getattr(self, attr)
+
+    def __setitem__(self, attr, val):
+        setattr(self, attr, val)
+
     def diff(self, other):
         """Compare self with other packet.
 
