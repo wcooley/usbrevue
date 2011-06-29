@@ -2,8 +2,6 @@
 
 import unittest
 
-from pprint import pprint
-
 import pcapy
 from usbmodify import Modifier
 from usbrevue import Packet
@@ -40,18 +38,15 @@ class TestPacketModifier(unittest.TestCase):
     def test_busnum3(self):
         packet = self.packet
 
-        pprint(locals())
         self.assertEqual(packet.busnum, 7)
         exec('busnum = packet.busnum + 1', {'packet':packet}, packet)
 
     def test_busnum4(self):
         packet = self.packet
 
-        pprint(locals())
         self.assertEqual(packet.busnum, 7)
         exec('busnum = busnum + 1', {'packet':packet}, packet)
         self.assertEqual(packet.busnum, 8)
-        pprint(locals())
 
 
 if __name__ == '__main__':
