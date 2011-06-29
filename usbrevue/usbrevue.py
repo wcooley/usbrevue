@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import sys
 
-from struct import unpack_from
+from array import array
+from struct import unpack_from, pack_into
 import datetime
 
 USBMON_PACKET_FORMAT = dict(
@@ -52,7 +53,8 @@ class Packet(object):
             if len(pack) < 64:
                 raise RuntimeError("Not a USB Packet")
 
-            self.__dict__['_hdr'], self.__dict__['_pack'] = hdr, pack
+            self.__dict__['_hdr'] = hdr
+            self.__dict__['_pack'] = array('c', pack)
             
 
             if self.event_type not in ['C', 'S', 'E'] or \
@@ -75,8 +77,15 @@ class Packet(object):
             self._cache[attr] = self.unpacket(attr)[0]
             return self._cache[attr]
 
+    def repacket(self, attr, vals, fmtx=None):
+        fmt, offset = USBMON_PACKET_FORMAT[attr]
+        if fmtx != None: fmt %= fmtx
+        return pack_into(fmt, self._pack, offset, *vals)
+
     def __setattr__(self, attr, val):
-        raise NotImplementedError("setter %s = %s" % (attr, val))
+        if self._cache.has_key(attr):
+            del self._cache[attr]
+        self.repacket(attr, [val])
 
     def diff(self, other):
         """Compare self with other packet.
