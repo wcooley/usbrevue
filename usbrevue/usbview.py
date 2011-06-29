@@ -211,6 +211,9 @@ class PacketView(QTreeView):
         self.autoscroll_toggle = QAction("Autoscroll", self)
         self.autoscroll_toggle.setCheckable(True)
         self.autoscroll_toggle.setChecked(False)
+        self.pause_toggle = QAction("Pause capture", self)
+        self.pause_toggle.setCheckable(True)
+        self.pause_toggle.setChecked(False)
         self.delegate = HexEditDelegate()
         self.setItemDelegateForColumn(DATA_COL, self.delegate)
 
@@ -223,6 +226,8 @@ class PacketView(QTreeView):
         menu.addSeparator()
         menu.addAction(self.autoscroll_toggle)
         menu.addAction(self.passthru_toggle)
+        menu.addSeparator()
+        menu.addAction(self.pause_toggle)
         menu.exec_(event.globalPos())
 
     def remove_selected(self):
@@ -297,6 +302,7 @@ class USBView(QApplication):
         self.packetview.dump_packet.connect(self.dump_packet)
         self.proxy.rowsInserted.connect(self.packetview.new_row)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
+        self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
 
         self.filterpane = FilterWidget()
         self.filterpane.new_filter.connect(self.proxy.set_filter)
@@ -308,19 +314,26 @@ class USBView(QApplication):
         self.w.show()
 
         self.pcapthread = PcapThread()
-        self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
-        self.pcapthread.new_packet.connect(self.new_packet)
+        self.pause_toggled(False)
         self.pcapthread.dump_opened.connect(self.dump_opened)
         self.pcapthread.start()
 
         self.dumper = None
         self.passthru = True
-
+	
     def dump_opened(self, dumper):
         self.dumper = dumper
 
     def passthru_toggled(self, state):
         self.passthru = state
+
+    def pause_toggled(self, state):
+        if state:
+            self.pcapthread.new_packet.disconnect(self.packetmodel.new_packet)
+            self.pcapthread.new_packet.disconnect(self.new_packet)
+        else:
+            self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
+            self.pcapthread.new_packet.connect(self.new_packet)
     
     def new_packet(self, packet):
         if self.passthru:
