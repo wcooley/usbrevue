@@ -4,12 +4,15 @@ packets programmatically by specifying one or more routines to be
 applied to each packet in a pcap stream/file.
 
 """
+from __future__ import division
 
 import sys
 import pcapy
 import gflags
 import re
+import struct
 from usbrevue import Packet
+
 
 FLAGS = gflags.FLAGS
 
@@ -18,14 +21,13 @@ gflags.DEFINE_list('exp', None, 'A comma-separated list of expressions to be app
 gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified.')
 
 
-
 class Modifier(object):
     """This class implements all modifier functionality. Does not
     interface with pcapy; instead, it expects to receive pcapy Reader
     and Dumper objects to work with.
 
     """
-    def __init__(self, pcap, routine_file, cmdline_exps, out=None):
+    def __init__(self, routine_file, cmdline_exps, pcap=None, out=None):
         self.pcap = pcap
         self.out = out
         self.routine_file = routine_file
@@ -40,7 +42,7 @@ class Modifier(object):
         """
         # continuously read packets, apply the modification routine, and write out
         while True:
-            (hdr, pack) = pcap.next()
+            (hdr, pack) = self.pcap.next()
             if hdr is None:
                 break # EOF
             packet = Packet(hdr, pack)
@@ -102,6 +104,22 @@ class Modifier(object):
                     exec(exp, {}, packet.__dict__)
 
 
+    def check_valid_data(self, packet):
+        """Check that the (possibly modified) packet attributes can
+        still be converted to a pcap binary string. This behavior is
+        already accomplished in the run() method; this function is
+        just for unit testing.
+
+        """
+
+        try:
+            packet.repack()
+        except (ValueError, struct.error) as err:
+            raise ValueError, "There was an error converting a packet to a binary string:\n" + err.message
+
+
+
+
     # accessors and mutators
     def get_num_modified(self):
         """Get the number of packets modified so far by the Modifier object."""
@@ -111,6 +129,11 @@ class Modifier(object):
     def set_routine_file(self, filestr):
         """Set the name of the user-supplied external routine file."""
         self.routine_file = filestr
+
+
+    def set_cmdline_exp(self, exps):
+        """Set the expression(s) meant to be passed in on the command line."""
+        self.cmdline_exp = exps
 
 
 
@@ -145,7 +168,7 @@ if __name__ == "__main__":
         out = pcap.dump_open('-')
     else:
         out = None
-    modifier = Modifier(pcap, FLAGS.routine, FLAGS.exp, out)
+    modifier = Modifier(FLAGS.routine, FLAGS.exp, pcap, out)
     try:
         modifier.run()
     except (KeyboardInterrupt, SystemExit):
