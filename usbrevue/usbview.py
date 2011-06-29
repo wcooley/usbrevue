@@ -260,31 +260,45 @@ class PacketView(QTreeView):
 
 
 class FilterWidget(QWidget):
-    new_filter = pyqtSignal(str)
+    new_view_filter = pyqtSignal(str)
+    new_cap_filter = pyqtSignal(str)
 
     def __init__(self, parent = None):
         QWidget.__init__(self, parent)
-        self.lineedit = QLineEdit()
-        self.applybtn = QPushButton("&Apply")
-        self.clearbtn = QPushButton("&Clear")
+        self.view_filter_edit = QLineEdit()
+        self.view_filter_edit.setPlaceholderText("Display filter")
+        self.view_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+        self.cap_filter_edit = QLineEdit()
+        self.cap_filter_edit.setPlaceholderText("Capture filter")
+        self.cap_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+
         self.hb = QHBoxLayout()
-        self.hb.addWidget(QLabel("Filter"))
-        self.hb.addWidget(self.lineedit)
-        self.hb.addWidget(self.applybtn)
-        self.hb.addWidget(self.clearbtn)
+        self.hb.addWidget(self.view_filter_edit)
+        self.hb.addWidget(self.view_filter_clear)
+        self.hb.addWidget(self.cap_filter_edit)
+        self.hb.addWidget(self.cap_filter_clear)
         self.setLayout(self.hb)
-        self.applybtn.clicked.connect(self.update_filter)
-        self.clearbtn.clicked.connect(self.clear_filter)
-        self.lineedit.returnPressed.connect(self.update_filter)
+
+        self.view_filter_clear.clicked.connect(self.clear_view_filter)
+        self.cap_filter_clear.clicked.connect(self.clear_cap_filter)
+        self.view_filter_edit.returnPressed.connect(self.update_view_filter)
+        self.cap_filter_edit.returnPressed.connect(self.update_cap_filter)
         
-    def update_filter(self):
+    def update_view_filter(self):
         #TODO validation
-        self.new_filter.emit(str(self.lineedit.text()))
+        self.new_view_filter.emit(str(self.view_filter_edit.text()))
 
-    def clear_filter(self):
-        self.lineedit.setText("")
-        self.update_filter()
+    def clear_view_filter(self):
+        self.view_filter_edit.setText("")
+        self.update_view_filter()
 
+    def update_cap_filter(self):
+        #TODO validation
+        self.new_cap_filter.emit(str(self.cap_filter_edit.text()))
+
+    def clear_cap_filter(self):
+        self.cap_filter_edit.setText("")
+        self.update_cap_filter()
 
 
 
@@ -308,7 +322,8 @@ class USBView(QApplication):
         self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
 
         self.filterpane = FilterWidget()
-        self.filterpane.new_filter.connect(self.proxy.set_filter)
+        self.filterpane.new_view_filter.connect(self.proxy.set_filter)
+        self.filterpane.new_cap_filter.connect(self.new_cap_filter)
 
         self.vb = QVBoxLayout()
         self.vb.addWidget(self.filterpane)
@@ -323,6 +338,7 @@ class USBView(QApplication):
 
         self.dumper = None
         self.passthru = True
+        self.filterexpr = None
 	
     def dump_opened(self, dumper):
         self.dumper = dumper
@@ -332,15 +348,24 @@ class USBView(QApplication):
 
     def pause_toggled(self, state):
         if state:
-            self.pcapthread.new_packet.disconnect(self.packetmodel.new_packet)
             self.pcapthread.new_packet.disconnect(self.new_packet)
         else:
-            self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
             self.pcapthread.new_packet.connect(self.new_packet)
     
     def new_packet(self, packet):
+        if self.filterexpr:
+            try:
+                if not eval(self.filterexpr, packet.__dict__):
+                    return
+            except Exception:
+                return
+
         if self.passthru:
             self.dump_packet(packet)
+        self.packetmodel.new_packet(packet)
+
+    def new_cap_filter(self, e):
+        self.filterexpr = str(e)
 
     def dump_packet(self, pack):
         if self.dumper is not None:
