@@ -9,7 +9,7 @@ from usbrevue import Packet
 class TestPacketModifier(unittest.TestCase):
 
     def setUp(self):
-        self.packet = Packet(*pcapy.open_offline('../test-data/usb-single-packet.pcap').next())
+        self.packet = Packet(*pcapy.open_offline('../test-data/usb-single-packet-2.pcap').next())
 
         # Verify that we have the right test data
         self.assertEqual(self.packet.length, 40, 'unmodified packet wrong--test bad?')
