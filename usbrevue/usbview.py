@@ -5,7 +5,7 @@ import pcapy
 from usbrevue import Packet
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
-                         QPersistentModelIndex
+                         QPersistentModelIndex, QTimer
 from PyQt4.QtGui import *
 
 
@@ -216,6 +216,9 @@ class PacketView(QTreeView):
         self.pause_toggle.setChecked(False)
         self.delegate = HexEditDelegate()
         self.setItemDelegateForColumn(DATA_COL, self.delegate)
+        self.autoscroll_timer = QTimer(self)
+        self.autoscroll_timer.setSingleShot(True)
+        self.autoscroll_timer.timeout.connect(self.scrollToBottom)
 
     def contextMenuEvent(self, event):
         menu = QMenu()
@@ -240,8 +243,8 @@ class PacketView(QTreeView):
         self.model().clear()
 
     def new_row(self, parent, start, end):
-        if self.autoscroll_toggle.isChecked():
-            self.scrollToBottom()
+        if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
+            self.autoscroll_timer.start(50)
 
     def dump_selected(self):
         selected = self.selectionModel().selectedRows()
