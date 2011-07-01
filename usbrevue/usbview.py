@@ -355,7 +355,7 @@ class USBView(QApplication):
     def new_packet(self, packet):
         if self.filterexpr:
             try:
-                if not eval(self.filterexpr, packet.__dict__):
+                if not eval(self.filterexpr, packet):
                     return
             except Exception:
                 return
