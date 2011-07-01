@@ -71,11 +71,9 @@ class Packet(object):
         return unpack_from(fmt, self._pack, offset)
 
     def __getattr__(self, attr):
-        if self._cache.has_key(attr):
-            return self._cache[attr]
-        else:
+        if not self._cache.has_key(attr):
             self._cache[attr] = self.unpacket(attr)[0]
-            return self._cache[attr]
+        return self._cache[attr]
 
     def repacket(self, attr, vals, fmtx=None):
         fmt, offset = USBMON_PACKET_FORMAT[attr]
