@@ -404,7 +404,7 @@ class Replayer(object):
 
     # Otherwise check to see if it is a submission packet.
     # Submission means xfer from host to USB device.
-    else if packet.type == 'S':       
+    else if packet.event_type == 'S':
       send_array = packet.data[5:]
       #numbytes = ep.write(self.ep_address, array, self.iface_num, TIMEOUT)
 
@@ -417,7 +417,7 @@ class Replayer(object):
 
     # Otherwise check to see it it is a callback packet.
     # Callback means xfer from USB to host.
-    else if packet.type == 'C':   
+    else if packet.event_type == 'C':
       #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
       ret_array = ep.read(packet.datalen)
       print '%d data items read.  Data = ' % (len(ret_array), ret_array)

@@ -246,8 +246,8 @@ class Packet(object):
         """
         modified_pack = array('c', '\0' * 64)
 
-        pack_into('=Q', modified_pack, 0, self.id)
-        pack_into('=c', modified_pack, 8, self.type)
+        pack_into('=Q', modified_pack, 0, self.urb)
+        pack_into('=c', modified_pack, 8, self.event_type)
         pack_into('=B', modified_pack, 9, self.xfer_type)
         pack_into('=B', modified_pack, 10, self.epnum)
         pack_into('=B', modified_pack, 11, self.devnum)
