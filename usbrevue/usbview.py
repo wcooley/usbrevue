@@ -148,7 +148,7 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
         index = self.sourceModel().index(source_row, 0, source_parent)
         packet = self.sourceModel().data(index, Qt.UserRole).toPyObject()
         try:
-            return bool(eval(self.expr, packet.field_dict))
+            return bool(eval(self.expr, {}, packet))
         except Exception:
             return False
 
@@ -266,11 +266,15 @@ class FilterWidget(QWidget):
     def __init__(self, parent = None):
         QWidget.__init__(self, parent)
         self.view_filter_edit = QLineEdit()
-        self.view_filter_edit.setPlaceholderText("Display filter")
         self.view_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
         self.cap_filter_edit = QLineEdit()
-        self.cap_filter_edit.setPlaceholderText("Capture filter")
         self.cap_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+
+        # Temporary workaround for Ubuntu 10.10 -- placeholderText was
+        # introduced in Qt 4.7, but PyQt4 4.7.4 has no bindings for it.
+        if hasattr(self.view_filter_edit, "setPlaceholderText"):
+            self.view_filter_edit.setPlaceholderText("Display filter")
+            self.cap_filter_edit.setPlaceholderText("Capture filter")
 
         self.hb = QHBoxLayout()
         self.hb.addWidget(self.view_filter_edit)
@@ -355,7 +359,7 @@ class USBView(QApplication):
     def new_packet(self, packet):
         if self.filterexpr:
             try:
-                if not eval(self.filterexpr, packet):
+                if not eval(self.filterexpr, {}, packet):
                     return
             except Exception:
                 return
