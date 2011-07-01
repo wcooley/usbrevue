@@ -3,7 +3,6 @@ import sys
 
 from array import array
 from struct import unpack_from, pack_into
-import array
 import datetime
 
 USBMON_PACKET_FORMAT = dict(
@@ -241,7 +240,7 @@ class Packet(object):
         Returns a binary string of the packet information. Currently
         ignores changes to anything but data.
         """
-        modified_pack = array.array('c', '\0' * 64)
+        modified_pack = array('c', '\0' * 64)
 
         pack_into('=Q', modified_pack, 0, self.id)
         pack_into('=c', modified_pack, 8, self.type)
