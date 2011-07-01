@@ -176,7 +176,7 @@ class BadData(unittest.TestCase):
 
     def test_bad_id(self):
         f = open('test_routine_file', 'w')
-        f.write('id = 100 ** 100')
+        f.write('urb = 100 ** 100')
         f.close()
         
         for packet in packet_generator():
@@ -186,7 +186,7 @@ class BadData(unittest.TestCase):
 
     def test_bad_type(self):
         f = open('test_routine_file', 'w')
-        f.write('type = "XX"')
+        f.write('event_type = "XX"')
         f.close()
 
         for packet in packet_generator():
