@@ -49,7 +49,7 @@ class Modifier(object):
 
             # keep track of which parts of the packet, if any, are modified
             modified = {}
-            for member in packet.__dict__:
+            for member in packet.fields:
                 modified[member] = False
             orig_packet = packet.copy()
             self.apply_routine_file(packet)
@@ -58,7 +58,7 @@ class Modifier(object):
             # figure out which parts of the packet were modified and print out
             # the changed parts (only with --verbose flag)
             notice_printed = False
-            for member in packet.__dict__:
+            for member in packet.fields:
                 if eval('packet.' + member) != eval('orig_packet.' + member):
                     self.num_modified += 1
                     if not notice_printed:
@@ -84,7 +84,7 @@ class Modifier(object):
     def apply_routine_file(self, packet):
         """Apply the user-supplied external routine file to a packet."""
         if self.routine_file is not None:
-            execfile(self.routine_file, {}, packet.__dict__)
+            execfile(self.routine_file, {}, packet)
 
 
     def apply_cmdline_exps(self, packet):
@@ -101,7 +101,7 @@ class Modifier(object):
                             max_offset = int(match.group(1))
 
                 if len(packet.data) > max_offset:
-                    exec(exp, {}, packet.__dict__)
+                    exec(exp, {}, packet)
 
 
     def check_valid_data(self, packet):
