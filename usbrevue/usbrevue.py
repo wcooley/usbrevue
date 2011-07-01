@@ -3,6 +3,7 @@ import sys
 
 from array import array
 from struct import unpack_from, pack_into
+import array
 import datetime
 
 USBMON_PACKET_FORMAT = dict(
@@ -226,11 +227,13 @@ class Packet(object):
 
 
     def print_pcap_summary(self):
-        """
-        Print concise packet summary information for debug purposes.
+        """ 
+        Print concise packet summary information for debug purposes.    
         Assumes header exists.
         """
-        print ('%s: Captured %d bytes, truncated to %d bytes' % (datetime.datetime.now(), self.hdr.getlen(), self.hdr.getcaplen()))
+        print ('%s: Captured %d bytes, truncated to %d bytes' % (
+                datetime.datetime.now(), self.hdr.getlen(),
+                self.hdr.getcaplen()))
 
 
     def repack(self):
@@ -238,8 +241,37 @@ class Packet(object):
         Returns a binary string of the packet information. Currently
         ignores changes to anything but data.
         """
-        return self.pack[:64] + ''.join(map(chr, self.data))
+        modified_pack = array.array('c', '\0' * 64)
 
+        pack_into('=Q', modified_pack, 0, self.id)
+        pack_into('=c', modified_pack, 8, self.type)
+        pack_into('=B', modified_pack, 9, self.xfer_type)
+        pack_into('=B', modified_pack, 10, self.epnum)
+        pack_into('=B', modified_pack, 11, self.devnum)
+        pack_into('=H', modified_pack, 12, self.busnum)
+        pack_into('=c', modified_pack, 14, self.flag_setup)
+        pack_into('=c', modified_pack, 15, self.flag_data)
+        pack_into('=q', modified_pack, 16, self.ts_sec)
+        pack_into('=i', modified_pack, 24, self.ts_usec)
+        pack_into('=i', modified_pack, 28, self.status)
+        pack_into('=I', modified_pack, 32, self.length)
+        pack_into('=I', modified_pack, 36, self.len_cap)
+        if self.flag_setup == 's':
+            i = 40
+            for c in setup:
+                modified_pack[i] = chr(c)
+                i += 1
+        else:
+            pack_into('=i', modified_pack, 40, self.error_count)
+            pack_into('=i', modified_pack, 44, self.numdesc)
+        pack_into('=i', modified_pack, 48, self.interval)
+        pack_into('=i', modified_pack, 52, self.start_frame)
+        pack_into('=I', modified_pack, 56, self.xfer_flags)
+        pack_into('=I', modified_pack, 60, self.ndesc)
+
+        # return self.pack[:64] + ''.join(map(chr, self.data))
+        return modified_pack.tostring() + ''.join(map(chr, self.data))
+        
 
 if __name__ == '__main__':
     # read a pcap file from stdin, replace the first byte of any data found

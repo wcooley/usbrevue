@@ -5,7 +5,7 @@ import pcapy
 from usbrevue import Packet
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
-                         QPersistentModelIndex
+                         QPersistentModelIndex, QTimer
 from PyQt4.QtGui import *
 
 
@@ -211,8 +211,14 @@ class PacketView(QTreeView):
         self.autoscroll_toggle = QAction("Autoscroll", self)
         self.autoscroll_toggle.setCheckable(True)
         self.autoscroll_toggle.setChecked(False)
+        self.pause_toggle = QAction("Pause capture", self)
+        self.pause_toggle.setCheckable(True)
+        self.pause_toggle.setChecked(False)
         self.delegate = HexEditDelegate()
         self.setItemDelegateForColumn(DATA_COL, self.delegate)
+        self.autoscroll_timer = QTimer(self)
+        self.autoscroll_timer.setSingleShot(True)
+        self.autoscroll_timer.timeout.connect(self.scrollToBottom)
 
     def contextMenuEvent(self, event):
         menu = QMenu()
@@ -223,6 +229,8 @@ class PacketView(QTreeView):
         menu.addSeparator()
         menu.addAction(self.autoscroll_toggle)
         menu.addAction(self.passthru_toggle)
+        menu.addSeparator()
+        menu.addAction(self.pause_toggle)
         menu.exec_(event.globalPos())
 
     def remove_selected(self):
@@ -235,8 +243,8 @@ class PacketView(QTreeView):
         self.model().clear()
 
     def new_row(self, parent, start, end):
-        if self.autoscroll_toggle.isChecked():
-            self.scrollToBottom()
+        if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
+            self.autoscroll_timer.start(50)
 
     def dump_selected(self):
         selected = self.selectionModel().selectedRows()
@@ -250,32 +258,47 @@ class PacketView(QTreeView):
         
 
 
+
 class FilterWidget(QWidget):
-    new_filter = pyqtSignal(str)
+    new_view_filter = pyqtSignal(str)
+    new_cap_filter = pyqtSignal(str)
 
     def __init__(self, parent = None):
         QWidget.__init__(self, parent)
-        self.lineedit = QLineEdit()
-        self.applybtn = QPushButton("&Apply")
-        self.clearbtn = QPushButton("&Clear")
+        self.view_filter_edit = QLineEdit()
+        self.view_filter_edit.setPlaceholderText("Display filter")
+        self.view_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+        self.cap_filter_edit = QLineEdit()
+        self.cap_filter_edit.setPlaceholderText("Capture filter")
+        self.cap_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+
         self.hb = QHBoxLayout()
-        self.hb.addWidget(QLabel("Filter"))
-        self.hb.addWidget(self.lineedit)
-        self.hb.addWidget(self.applybtn)
-        self.hb.addWidget(self.clearbtn)
+        self.hb.addWidget(self.view_filter_edit)
+        self.hb.addWidget(self.view_filter_clear)
+        self.hb.addWidget(self.cap_filter_edit)
+        self.hb.addWidget(self.cap_filter_clear)
         self.setLayout(self.hb)
-        self.applybtn.clicked.connect(self.update_filter)
-        self.clearbtn.clicked.connect(self.clear_filter)
-        self.lineedit.returnPressed.connect(self.update_filter)
+
+        self.view_filter_clear.clicked.connect(self.clear_view_filter)
+        self.cap_filter_clear.clicked.connect(self.clear_cap_filter)
+        self.view_filter_edit.returnPressed.connect(self.update_view_filter)
+        self.cap_filter_edit.returnPressed.connect(self.update_cap_filter)
         
-    def update_filter(self):
+    def update_view_filter(self):
         #TODO validation
-        self.new_filter.emit(str(self.lineedit.text()))
+        self.new_view_filter.emit(str(self.view_filter_edit.text()))
 
-    def clear_filter(self):
-        self.lineedit.setText("")
-        self.update_filter()
+    def clear_view_filter(self):
+        self.view_filter_edit.setText("")
+        self.update_view_filter()
 
+    def update_cap_filter(self):
+        #TODO validation
+        self.new_cap_filter.emit(str(self.cap_filter_edit.text()))
+
+    def clear_cap_filter(self):
+        self.cap_filter_edit.setText("")
+        self.update_cap_filter()
 
 
 
@@ -296,9 +319,11 @@ class USBView(QApplication):
         self.packetview.dump_packet.connect(self.dump_packet)
         self.proxy.rowsInserted.connect(self.packetview.new_row)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
+        self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
 
         self.filterpane = FilterWidget()
-        self.filterpane.new_filter.connect(self.proxy.set_filter)
+        self.filterpane.new_view_filter.connect(self.proxy.set_filter)
+        self.filterpane.new_cap_filter.connect(self.new_cap_filter)
 
         self.vb = QVBoxLayout()
         self.vb.addWidget(self.filterpane)
@@ -307,23 +332,40 @@ class USBView(QApplication):
         self.w.show()
 
         self.pcapthread = PcapThread()
-        self.pcapthread.new_packet.connect(self.packetmodel.new_packet)
-        self.pcapthread.new_packet.connect(self.new_packet)
+        self.pause_toggled(False)
         self.pcapthread.dump_opened.connect(self.dump_opened)
         self.pcapthread.start()
 
         self.dumper = None
         self.passthru = True
-
+        self.filterexpr = None
+	
     def dump_opened(self, dumper):
         self.dumper = dumper
 
     def passthru_toggled(self, state):
         self.passthru = state
+
+    def pause_toggled(self, state):
+        if state:
+            self.pcapthread.new_packet.disconnect(self.new_packet)
+        else:
+            self.pcapthread.new_packet.connect(self.new_packet)
     
     def new_packet(self, packet):
+        if self.filterexpr:
+            try:
+                if not eval(self.filterexpr, packet.__dict__):
+                    return
+            except Exception:
+                return
+
         if self.passthru:
             self.dump_packet(packet)
+        self.packetmodel.new_packet(packet)
+
+    def new_cap_filter(self, e):
+        self.filterexpr = str(e)
 
     def dump_packet(self, pack):
         if self.dumper is not None:
