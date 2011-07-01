@@ -249,39 +249,9 @@ class Packet(object):
 
     def repack(self):
         """
-        Returns a binary string of the packet information. Currently
-        ignores changes to anything but data.
+        Returns a binary string of the packet information.
         """
-        modified_pack = array('c', '\0' * 64)
-
-        pack_into('=Q', modified_pack, 0, self.urb)
-        pack_into('=c', modified_pack, 8, self.event_type)
-        pack_into('=B', modified_pack, 9, self.xfer_type)
-        pack_into('=B', modified_pack, 10, self.epnum)
-        pack_into('=B', modified_pack, 11, self.devnum)
-        pack_into('=H', modified_pack, 12, self.busnum)
-        pack_into('=c', modified_pack, 14, self.flag_setup)
-        pack_into('=c', modified_pack, 15, self.flag_data)
-        pack_into('=q', modified_pack, 16, self.ts_sec)
-        pack_into('=i', modified_pack, 24, self.ts_usec)
-        pack_into('=i', modified_pack, 28, self.status)
-        pack_into('=I', modified_pack, 32, self.length)
-        pack_into('=I', modified_pack, 36, self.len_cap)
-        if self.flag_setup == 's':
-            i = 40
-            for c in setup:
-                modified_pack[i] = chr(c)
-                i += 1
-        else:
-            pack_into('=i', modified_pack, 40, self.error_count)
-            pack_into('=i', modified_pack, 44, self.numdesc)
-        pack_into('=i', modified_pack, 48, self.interval)
-        pack_into('=i', modified_pack, 52, self.start_frame)
-        pack_into('=I', modified_pack, 56, self.xfer_flags)
-        pack_into('=I', modified_pack, 60, self.ndesc)
-
-        # return self.pack[:64] + ''.join(map(chr, self.data))
-        return modified_pack.tostring() + ''.join(map(chr, self.data))
+        return self.__dict__['_pack'].tostring()
         
 
 if __name__ == '__main__':
