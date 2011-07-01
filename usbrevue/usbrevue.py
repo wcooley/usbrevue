@@ -93,6 +93,10 @@ class Packet(object):
     def __setitem__(self, attr, val):
         setattr(self, attr, val)
 
+    @property
+    def hdr(self):
+        return self._hdr
+
     def diff(self, other):
         """Compare self with other packet.
 
