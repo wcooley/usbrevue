@@ -135,7 +135,9 @@ class Packet(object):
     # Special attribute accessors that have additional restrictions
     @property
     def data(self):
-        return list(self.unpacket('data', self.datalen))
+        if not self._cache.has_key('data'):
+            self._cache['data'] = list(self.unpacket('data', self.datalen))
+        return self._cache['data']
 
     @property
     def setup(self):
