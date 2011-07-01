@@ -26,10 +26,10 @@ from optparse import OptionParser
 #For capstone14.cs.pdx.edu USB keyboard 
 VENDOR_ID = 0x413c    # Dell Computer Corp.
 PRODUCT_ID = 0x2105   # Model L100 Keyboard
-LOGICAL CFG_IDX = 0   # 1 interface, bConfigurationValue=1
-LOGICAL IFACE_IDX = 0 # HID Device Descriptor.bHID=1.10, 1 ep descriptor
+LOGICAL_CFG_IDX = 0   # 1 interface, bConfigurationValue=1
+LOGICAL_IFACE_IDX = 0 # HID Device Descriptor.bHID=1.10, 1 ep descriptor
                       # bInterfaceClass=3 (Human Interface device)
-LOGICAL ALT_SETTING_IDX = 0
+LOGICAL_ALT_SETTING_IDX = 0
 LOGICAL_EP_IDX = 0    # EP 1 IN
 EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3 
                       # (Transfer Type, Synch Type, Usage Type)
@@ -38,12 +38,12 @@ EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3
 class Replayer(object):
 
   def __init__(self, args_dict):
-    self.vid = args_dict{"vid"}
-    self.pid = args_dict{"pid"}
-    self.logical_cfg = args_dict{"logical_cfg"}
-    self.logical_iface = args_dict{"logical_iface"}
-    self.logical_alt_setting = args_dict{"logical_alt_setting"}
-    self.ep_address = args_dict{"ep_address"}
+    self.vid = args_dict["vid"]
+    self.pid = args_dict["pid"]
+    self.logical_cfg = args_dict["logical_cfg"]
+    self.logical_iface = args_dict["logical_iface"]
+    self.logical_alt_setting = args_dict["logical_alt_setting"]
+    self.ep_address = args_dict["ep_address"]
     self.logical_ep = self.ep_address[0:3]
     self.device = get_usb_device(vid, pid)
     self.ep_descriptor = usb.util.find_descriptor(iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
@@ -79,8 +79,8 @@ class Replayer(object):
     #if res:
     #  self.device.detach_kernel_driver()
 
-    set_configuration(self.logical_cfg):
-    set_interface(self.iface_num, self.alt_setting_num):
+    set_configuration(self.logical_cfg)
+    set_interface(self.iface_num, self.alt_setting_num)
     # set_configuration is used to enable a device and should contain
     # the value of bConfigurationValue of the desired configuration
     # descriptor in the lower byte of wValue to select which configuration
@@ -139,10 +139,12 @@ class Replayer(object):
 
 
   # Got this from USB in a NutShell, chp 5.
-  def print_device_descriptor_fields(self, dev=self.device):
+  def print_device_descriptor_fields(self, dev=None):
     """ 
     Utility function to print out all device descriptor fields.
     """
+    if dev == None:
+        dev = self.device
     # bLength = Size of device descriptor in bytes (18 bytes) (number).
     print 'bLength = ' % dev.bLength
     # bDescriptorType = Device descriptor (0x01) in bytes (constant).
@@ -205,10 +207,12 @@ class Replayer(object):
   # Got this from USB in a NutShell, chp 5.
   # Interface descriptor is a grouping of endpoints into a functional 
   # group performing a single feature of the device.
-  def print_iface_descriptor_fields(self, iface=self.iface):
+  def print_iface_descriptor_fields(self, iface=None):
     """ 
     Utility function to print out all interface descriptor fields.
     """
+    if iface == None:
+        iface = self.iface
     # bLength = Size of interface descriptor in bytes (number).
     print 'bLength = ' % iface.bLength
     # bDescriptorType = Interface descriptor (0x04) in bytes (constant).
@@ -233,10 +237,11 @@ class Replayer(object):
 
 
   # Got this from USB in a NutShell, chp 5.
-  def print_endpoint_descriptor_fields(self, ep=self.ep):
+  def print_endpoint_descriptor_fields(self, ep=None):
     """ 
     Utility function to print out all endpoint descriptor fields.
     """
+    if ep == None: ep = self.ep
     # bLength = Size of endpoint descriptor in bytes (number).
     print 'bLength = ' % ep.bLength
     # bDescriptorType = Endpoint descriptor (0x05) in bytes (constant).
@@ -395,7 +400,7 @@ class Replayer(object):
         print 'Return array after join =', ret_array
 
       # OUT means write bytes from host to device.
-      else if bmRequestType == usb.util.ENDPOINT_OUT:
+      elif bmRequestType == usb.util.ENDPOINT_OUT:
         # If no data payload then send_array should be None
         send_array = packet.data[4:] 
         numbytes = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, send_array)
@@ -404,7 +409,7 @@ class Replayer(object):
 
     # Otherwise check to see if it is a submission packet.
     # Submission means xfer from host to USB device.
-    else if packet.event_type == 'S':
+    elif packet.event_type == 'S':
       send_array = packet.data[5:]
       #numbytes = ep.write(self.ep_address, array, self.iface_num, TIMEOUT)
 
@@ -417,7 +422,7 @@ class Replayer(object):
 
     # Otherwise check to see it it is a callback packet.
     # Callback means xfer from USB to host.
-    else if packet.event_type == 'C':
+    elif packet.event_type == 'C':
       #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
       ret_array = ep.read(packet.datalen)
       print '%d data items read.  Data = ' % (len(ret_array), ret_array)
@@ -426,7 +431,7 @@ class Replayer(object):
 
 
 
-  def get_arguments(argv):
+def get_arguments(argv):
     parser = OptionParser()
 
     # Get the input file stream (pcap stream or filename
@@ -443,7 +448,7 @@ class Replayer(object):
 
     # Get the configuration index (defaults to 0)
     parser.add_option("-c", "--cfg", type="int", dest="logical_cfg", 
-      default=LOGICAL_CONFIG_IDX, help="The logical configuration index of the device (starting at 0) in the device hierarchy")
+      default=LOGICAL_CFG_IDX, help="The logical configuration index of the device (starting at 0) in the device hierarchy")
 
     # Get the interface index (defaults to 3)
     parser.add_option("-i", "--iface", type="int", dest="logical_iface", 
@@ -462,13 +467,13 @@ class Replayer(object):
       dest="debug", default=True,
       help="Don't print debug messages to stdout")
 
-    args_dict = {}
-    args_dict{"vid"} = vid
-    args_dict{"pid"} = pid
-    args_dict{"logical_cfg"} = logical_cfg_idx
-    args_dict{"logical_iface"} = logical_iface_idx
-    args_dict{"logical_alt_setting"} = logical_alt_setting_idx
-    args_dict{"ep_address"} = ep_address
+    args_dict = dict()
+    args_dict["vid"] = vid
+    args_dict["pid"] = pid
+    args_dict["logical_cfg"] = logical_cfg_idx
+    args_dict["logical_iface"] = logical_iface_idx
+    args_dict["logical_alt_setting"] = logical_alt_setting_idx
+    args_dict["ep_address"] = ep_address
     return args_dict
 
 
@@ -476,7 +481,7 @@ if __name__ == '__main__':
   # read a pcap stream from a file or from stdin, write the contents back
   # to stdout (for debug info), convert input stream to USB packets, and 
   # send USB packets to the device or stdout.
-  args_dict = {}
+  args_dict = dict()
   args_dict = get_arguments(sys.argv)
   pcap = pcapy.open_offline('-')
   out = pcap.dump_open('-')
