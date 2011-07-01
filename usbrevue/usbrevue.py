@@ -149,11 +149,15 @@ class Packet(object):
     def error_count(self):
         if self.is_isochronous_xfer():
             return self.unpacket('error_count')[0]
+        else:
+            return 0
 
     @property
     def numdesc(self):
         if self.is_isochronous_xfer():
             return self.unpacket('numdesc')[0]
+        else:
+            return 0
 
     # interval is only meaningful for isochronous or interrupt transfers
     # (xfer_type in [0,1])
@@ -161,12 +165,16 @@ class Packet(object):
     def interval(self):
         if self.is_isochronous_xfer() or self.is_interrupt_xfer():
             return self.unpacket('interval')[0]
+        else:
+            return 0
 
     @property
     def start_frame(self):
         # start_frame is only meaningful for isochronous transfers
         if self.is_isochronous_xfer():
             return self.unpacket('start_frame')[0]
+        else:
+            return 0
 
     # Boolean tests for transfer types
     def is_isochronous_xfer(self):
