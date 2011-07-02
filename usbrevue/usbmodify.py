@@ -10,6 +10,7 @@ import pcapy
 import gflags
 import re
 from usbrevue import Packet
+import traceback
 
 FLAGS = gflags.FLAGS
 
@@ -76,6 +77,7 @@ class Modifier(object):
             except ValueError as valerr:
                 sys.stderr.write('There was an error converting a packet to a binary string:\n')
                 sys.stderr.write(str(valerr) + '\n')
+                traceback.print_exc()
                 sys.exit(1)
 
 
