@@ -1,42 +1,54 @@
 #!/usr/bin/env python
 
+import unittest
+
 import pcapy
 from usbmodify import Modifier
 from usbrevue import Packet
 
-pcap = pcapy.open_offline('usbmodifytestdump.pcap')
-modifier = Modifier(None, '', '')
+class TestPacketModifier(unittest.TestCase):
 
-while True:
-    hdr, pack = pcap.next()
-    if hdr is None:
-        break
+    def setUp(self):
+        self.packet = Packet(*pcapy.open_offline('../test-data/usb-single-packet-2.pcap').next())
 
-    packet = Packet(hdr, pack)
+        # Verify that we have the right test data
+        self.assertEqual(self.packet.length, 40, 'unmodified packet wrong--test bad?')
+        self.assertEqual(self.packet.busnum, 7, 'unmodified packet wrong--test bad?')
 
-    # all the following exec calls work as intended in the mainline
+    def test_length(self):
+        packet = self.packet
 
-    # debug print
-    # should be length = 40, 18, 8 or 4, busnum = 7
-    print 'before exec, length = ', packet.length, ', busnum = ', packet.busnum
+        exec('length = 99', {}, packet.__dict__)
+        self.assertEqual(packet.length, 99, 'length = 99')
 
-    # pass in __dict__ as local namespace and apply "id = 12345 +
-    # busnum" to each packet
-    #
-    # does not invoke setattr in Wil's fork
-    exec('length = 99', {}, packet.__dict__)
+    def test_busnum1(self):
+        packet = self.packet
 
-    # explicitly referencing the packet object on the left or right of
-    # the statement works too if you pass in 'packet' as part of the
-    # global namespace
-    #
-    # first exec call invokes setattr and raises NotImplementedError
-    # exception in Wil's fork 
-    exec('packet.busnum = packet.busnum + 1', {'packet':packet}, packet.__dict__)
-    exec('packet.busnum = busnum + 1', {'packet':packet}, packet.__dict__)
-    exec('busnum = packet.busnum + 1', {'packet':packet}, packet.__dict__)
+        self.assertEqual(packet.busnum, 7)
+        exec('packet.busnum = packet.busnum + 1', {'packet':packet}, packet)
+        self.assertEqual(packet.busnum, 8)
+
+    def test_busnum2(self):
+        packet = self.packet
+
+        self.assertEqual(packet.busnum, 7)
+        exec('packet.busnum = busnum + 1', {'packet':packet}, packet)
+        self.assertEqual(packet.busnum, 8)
+
+    def test_busnum3(self):
+        packet = self.packet
+
+        self.assertEqual(packet.busnum, 7)
+        exec('busnum = packet.busnum + 1', {'packet':packet}, packet)
+
+    def test_busnum4(self):
+        packet = self.packet
+
+        self.assertEqual(packet.busnum, 7)
+        exec('busnum = busnum + 1', {'packet':packet}, packet)
+        self.assertEqual(packet.busnum, 8)
 
 
-    # debug print
-    # should be length = 99, busnum = 10
-    print 'after exec, length =', packet.length, ', busnum = ', packet.busnum
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestPacketModifier)
+    unittest.TextTestRunner(verbosity=2).run(suite)
