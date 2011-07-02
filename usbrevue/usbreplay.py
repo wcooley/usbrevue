@@ -112,6 +112,7 @@ class Replayer(object):
         print 'In reset_device'
         dev = self.device
         dev.reset()
+        # TODO: Do I need to sleep here for awhile?
         res = dev.is_kernel_driver_active(self.logical_iface)
         if not res:
             dev.attach_kernel_driver(self.logical_iface)
@@ -424,9 +425,7 @@ class Replayer(object):
                 #sys.exit("In run: Early exit for debug purposes")
             except Exception:
                 sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
-                res = dev.is_kernel_driver_active(self.logical_iface)
-                if not res:
-                    dev.attach_kernel_driver(self.logical_iface)
+                self.reset_device()
                 traceback.print_exc()
                 sys.exit(1)
 
@@ -476,7 +475,7 @@ class Replayer(object):
 
         # Otherwise check to see if it is a submission packet.
         # Submission means xfer from host to USB device.
-        elif packet.type == 'S':       
+        elif packet.event_type == 'S':       
             print 'In send_usb_packet: this is a submission packet'
             send_array = packet.data[5:]
             print 'Packet data is: ', packet.data
@@ -494,7 +493,7 @@ class Replayer(object):
 
         # Otherwise check to see it it is a callback packet.
         # Callback means xfer from USB to host.
-        elif packet.type == 'C':   
+        elif packet.event_type == 'C':   
             print 'In send_usb_packet: this is a callback packet'
             #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
             #ret_array = ep.read(packet.datalen)
@@ -513,10 +512,7 @@ class Replayer(object):
             except:
                 print 'Error when trying to read data from callback'
                 print 'Data read was ', ret_array
-                res = self.device.is_kernel_driver_active(self.logical_iface)
-                if not res:
-                    self.device.attach_kernel_driver(self.logical_iface)
-                    self.reset_device()
+                self.reset_device()
                 #print 'Printing traceback ...'
                 #traceback.print_exc()
 
