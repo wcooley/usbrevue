@@ -2,6 +2,7 @@
 import sys
 
 from array import array
+from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
 
@@ -32,7 +33,7 @@ USBMON_PACKET_FORMAT = dict(
 
 # Note that the packet transfer type has different numeric identifiers then the
 # endpoint control types in the Linux kernel headers <linux/usb/ch9.h>:
-#define USB_ENDPOINT_XFER_CONTROL       0
+#define USB_ENDPOINT_XFER_CONTROL       1
 #define USB_ENDPOINT_XFER_ISOC          1
 #define USB_ENDPOINT_XFER_BULK          2
 #define USB_ENDPOINT_XFER_INT           3
@@ -43,53 +44,86 @@ USBMON_TRANSFER_TYPE = dict(
     bulk        = 3,
 )
 
-class Packet(object):
 
-    def __init__(self, hdr=None, pack=None):
+class PackedFields(object):
+    """Base class for field decodings/unpacking."""
 
-        self.__dict__['_cache'] = dict()
+    # This must exist so __setattr__ can find 'format_table' itself missing
+    # when it is being initialized
+    format_table = dict()
 
-        if None not in (hdr, pack):
-            if len(pack) < 64:
-                raise RuntimeError("Not a USB Packet")
+    def __init__(self):
+        self._cache = dict()
 
-            self.__dict__['_hdr'] = hdr
-            self.__dict__['_pack'] = array('c', pack)
-            
+    def cache(self, attr, lookup_func):
+        if not self._cache.has_key(attr):
+            self.set_cache(attr, lookup_func(attr))
+        return self._cache[attr]
 
-            if self.event_type not in ['C', 'S', 'E'] or \
-                    self.xfer_type not in USBMON_TRANSFER_TYPE.values():
-                raise RuntimeError("Not a USB Packet")
-
+    def set_cache(self, attr, val):
+        self._cache[attr] = val
 
     # Generic attribute accessor
     # Note that we unpack the single item from the tuple in __getattr__ due to
     # setup()
     def unpacket(self, attr, fmtx=None):
-        fmt, offset = USBMON_PACKET_FORMAT[attr]
+        fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
-        return unpack_from(fmt, self._pack, offset)
+        return unpack_from(fmt, self.datapack, offset)
 
     def __getattr__(self, attr):
-        if not self._cache.has_key(attr):
-            self._cache[attr] = self.unpacket(attr)[0]
-        return self._cache[attr]
+        return self.cache(attr, lambda a: self.unpacket(a)[0])
 
     def repacket(self, attr, vals, fmtx=None):
-        fmt, offset = USBMON_PACKET_FORMAT[attr]
+        fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
-        return pack_into(fmt, self._pack, offset, *vals)
+        return pack_into(fmt, self.datapack, offset, *vals)
 
     def __setattr__(self, attr, val):
-        if self._cache.has_key(attr):
-            del self._cache[attr]
-        self.repacket(attr, [val])
+        if attr in self.format_table:
+            self.set_cache(attr, val)
+            self.repacket(attr, [val])
+        else:
+            # This makes properties and non-format_table attributes work
+            object.__setattr__(self, attr, val)
 
     def __getitem__(self, attr):
         return getattr(self, attr)
 
     def __setitem__(self, attr, val):
         setattr(self, attr, val)
+
+    @property
+    def datapack(self):
+        return self.__dict__['datapack']
+
+    @datapack.setter
+    def datapack(self, value):
+        self.__dict__['datapack'] = value
+
+    def repack(self):
+        """
+        Returns a binary string of the packet information.
+        """
+        return self.datapack.tostring()
+
+
+class Packet(PackedFields):
+
+    def __init__(self, hdr=None, pack=None):
+        super(Packet, self).__init__()
+        self.format_table = USBMON_PACKET_FORMAT
+
+        if None not in (hdr, pack):
+            if len(pack) < 64:
+                raise RuntimeError("Not a USB Packet")
+
+            self._hdr = hdr
+            self.datapack = array('c', pack)
+
+            if self.event_type not in ['C', 'S', 'E'] or \
+                    self.xfer_type not in USBMON_TRANSFER_TYPE.values():
+                raise RuntimeError("Not a USB Packet")
 
     @property
     def hdr(self):
@@ -128,34 +162,33 @@ class Packet(object):
 
     @property
     def datalen(self):
-        return len(self._pack) - 64
+        return len(self.datapack) - 64
 
     # Special attribute accessors that have additional restrictions
     @property
     def data(self):
-        if not self._cache.has_key('data'):
-            self._cache['data'] = list(self.unpacket('data', self.datalen))
-        return self._cache['data']
+        return self.cache('data',
+                lambda a: list(self.unpacket(a, self.datalen)))
 
     @property
     def setup(self):
         # setup is only meaningful if flag_setup == 's'
         if self.flag_setup == 's':
-            return list(self.unpacket('setup'))
+            return self.cache('setup', lambda a: list(self.unpacket(a)))
 
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
     @property
     def error_count(self):
         if self.is_isochronous_xfer():
-            return self.unpacket('error_count')[0]
+            return self.cache('error_count', lambda a: self.unpacket(a)[0])
         else:
             return 0
 
     @property
     def numdesc(self):
         if self.is_isochronous_xfer():
-            return self.unpacket('numdesc')[0]
+            return self.cache('numdesc', lambda a: self.unpacket(a)[0])
         else:
             return 0
 
@@ -164,7 +197,7 @@ class Packet(object):
     @property
     def interval(self):
         if self.is_isochronous_xfer() or self.is_interrupt_xfer():
-            return self.unpacket('interval')[0]
+            return self.cache('interval', lambda a: self.unpacket(a)[0])
         else:
             return 0
 
@@ -172,7 +205,7 @@ class Packet(object):
     def start_frame(self):
         # start_frame is only meaningful for isochronous transfers
         if self.is_isochronous_xfer():
-            return self.unpacket('start_frame')[0]
+            return self.cache('start_frame', lambda a: self.unpacket(a)[0])
         else:
             return 0
 
@@ -247,30 +280,41 @@ class Packet(object):
                 self.hdr.getcaplen()))
 
 
-    def repack(self):
-        """
-        Returns a binary string of the packet information.
-        """
-        return self.__dict__['_pack'].tostring()
-        
+SETUP_FIELD_FORMAT = dict(
+        bmRequestType   =   ('=B',  0),
+        bRequest        =   ('=B',  1),
+        wValue          =   ('=H',  2),
+        wIndex          =   ('=H',  4),
+        wLength         =   ('=H',  6),
+)
+
+class SetupField(PackedFields):
+
+    def __init__(self, data=None):
+        super(SetupField, self).__init__()
+
+        self.data = array('c', data)
+
+
+
 class WrongPacketXferType(Exception): pass
 
 if __name__ == '__main__':
     # read a pcap file from stdin, replace the first byte of any data found
     # with 0x42, and write the modified packets to stdout
     import pcapy
-    pcap = pcapy.open_offline('-')
-    #pcap = pcapy.open_offline('../test-data/usb-single-packet-2.pcap')
-    out = pcap.dump_open('-')
+    #pcap = pcapy.open_offline('-')
+    pcap = pcapy.open_offline('../test-data/usb-single-packet-2.pcap')
+    #out = pcap.dump_open('-')
 
     while 1:
         hdr, pack = pcap.next()
         if hdr is None:
             break # EOF
         p = Packet(hdr, pack)
-        p.print_pcap_fields()
-        p.print_pcap_summary()
-        if len(p.data) > 0:
-            p.data[0] = 0x42
-        out.dump(hdr, p.repack())
+        #p.print_pcap_fields()
+        #p.print_pcap_summary()
+        #if len(p.data) > 0:
+        #    p.data[0] = 0x42
+        #out.dump(hdr, p.repack())
 
