@@ -170,6 +170,10 @@ class Packet(PackedFields):
         return self.cache('data',
                 lambda a: list(self.unpacket(a, self.datalen)))
 
+    def repack(self):
+        self.repacket('data', self.data, self.datalen)
+        return super(Packet, self).repack()
+
     @property
     def setup(self):
         # setup is only meaningful if flag_setup == 's'
@@ -304,7 +308,7 @@ if __name__ == '__main__':
     # with 0x42, and write the modified packets to stdout
     import pcapy
     #pcap = pcapy.open_offline('-')
-    pcap = pcapy.open_offline('../test-data/usb-single-packet-2.pcap')
+    pcap = pcapy.open_offline('../test-data/usb-single-packet-8bytes-data.pcap')
     #out = pcap.dump_open('-')
 
     while 1:
