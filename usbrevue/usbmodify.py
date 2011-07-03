@@ -106,21 +106,6 @@ class Modifier(object):
                     exec(exp, {}, packet)
 
 
-    def check_valid_data(self, packet):
-        """Check that the (possibly modified) packet attributes can
-        still be converted to a pcap binary string. This behavior is
-        already accomplished in the run() method; this function is
-        just for unit testing.
-
-        """
-
-        try:
-            packet.repack()
-        except (ValueError, struct.error) as err:
-            raise ValueError, "There was an error converting a packet to a binary string:\n" + err.message
-
-
-
 
     # accessors and mutators
     def get_num_modified(self):
