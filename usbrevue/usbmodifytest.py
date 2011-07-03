@@ -180,9 +180,7 @@ class BadData(unittest.TestCase):
         f.close()
         
         for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertRaises(ValueError, self.modifier.check_valid_data, packet)
-
+            self.assertRaises(struct.error, self.modifier.apply_routine_file, packet)
 
     def test_bad_type(self):
         f = open('test_routine_file', 'w')
@@ -190,10 +188,7 @@ class BadData(unittest.TestCase):
         f.close()
 
         for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertRaises(ValueError, self.modifier.check_valid_data, packet)
-
-
+            self.assertRaises(struct.error, self.modifier.apply_routine_file, packet)
 
 def packet_generator():
     pcap = pcapy.open_offline('usbmodifytestdump.pcap')
