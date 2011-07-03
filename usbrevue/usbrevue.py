@@ -253,12 +253,14 @@ class Packet(object):
         """
         return self.__dict__['_pack'].tostring()
         
+class WrongPacketXferType(Exception): pass
 
 if __name__ == '__main__':
     # read a pcap file from stdin, replace the first byte of any data found
     # with 0x42, and write the modified packets to stdout
     import pcapy
     pcap = pcapy.open_offline('-')
+    #pcap = pcapy.open_offline('../test-data/usb-single-packet-2.pcap')
     out = pcap.dump_open('-')
 
     while 1:
