@@ -89,7 +89,13 @@ class TestPacket(unittest.TestCase,TestUtil):
         self.set_and_test('urb', 0)
         self.set_and_test('urb', 0xffffffffffffffff)
 
-        self.assertRaises(TypeError, self.set_and_test, 'urb', -1)
+        # 2.6 raises TypeError; 2.7 struct.error
+        if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
+            minus_one_exception = struct.error
+        else:
+            minus_one_exception = TypeError
+
+        self.assertRaises(minus_one_exception, self.set_and_test, 'urb', -1)
         self.assertRaises(struct.error,         # Too large
                 self.set_and_test,'urb', 0xffffffffffffffffff)
 
