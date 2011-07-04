@@ -52,8 +52,11 @@ class PackedFields(object):
     # self.format_table when it is being initialized.
     format_table = dict()
 
-    def __init__(self, datapack=None):
+    def __init__(self, format_table=None, datapack=None):
         self._cache = dict()
+
+        if format_table != None:
+            self.format_table = format_table
 
         self.datapack = datapack
 
