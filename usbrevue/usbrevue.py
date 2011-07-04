@@ -48,8 +48,8 @@ USBMON_TRANSFER_TYPE = dict(
 class PackedFields(object):
     """Base class for field decodings/unpacking."""
 
-    # This must exist so __setattr__ can find 'format_table' itself missing
-    # when it is being initialized
+    # This must exist so __setattr__ can find key 'format_table' missing from
+    # self.format_table when it is being initialized.
     format_table = dict()
 
     def __init__(self):
@@ -67,19 +67,36 @@ class PackedFields(object):
     # Note that we unpack the single item from the tuple in __getattr__ due to
     # setup()
     def unpacket(self, attr, fmtx=None):
+        """Unpack attr from self.datapack using (struct) format string and
+        offset from self.format_table. fmtx can be used to provide additional
+        data for string-formatting that may be in the format string.
+
+        Returns the tuple of data as from struct.unpack_from."""
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return unpack_from(fmt, self.datapack, offset)
 
     def __getattr__(self, attr):
+        """Pull attr from cache, looking it up with unpacket if necessary."""
         return self.cache(attr, lambda a: self.unpacket(a)[0])
 
     def repacket(self, attr, vals, fmtx=None):
+        """Repack attr into self.datapack using (struct) format string and
+        offset from self.format_table. fmtx can be used to provide additional
+        data for string-formatting that may be in the format string."""
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return pack_into(fmt, self.datapack, offset, *vals)
 
     def __setattr__(self, attr, val):
+        # __setattr__ is more complicated than __getattr__ because it is
+        # called even for existing attributes, whereas __getattr__ is not. Since
+        # the attributes in self.format_table are the only ones that we want to
+        # dynamically update, we explicitly check for those and otherwise call up
+        # to object's __setattr__ which handles "regular" attributes (including
+        # properties) as expected.
+        """Dynamically update attributes in self.format_table, otherwise call
+        up to object's version."""
         if attr in self.format_table:
             self.set_cache(attr, val)
             self.repacket(attr, [val])
@@ -87,6 +104,9 @@ class PackedFields(object):
             # This makes properties and non-format_table attributes work
             object.__setattr__(self, attr, val)
 
+    # Implementing __getitem__ and __setitem__ permit the object to be used as
+    # a mapping type, so it can be used as e.g. the global or local namespace
+    # with 'eval'.
     def __getitem__(self, attr):
         return getattr(self, attr)
 
@@ -95,6 +115,8 @@ class PackedFields(object):
 
     @property
     def datapack(self):
+        """Holds the mutable sequence type (probably array) containing the data
+        which is packed into or unpacked from."""
         return self.__dict__['datapack']
 
     @datapack.setter
