@@ -60,11 +60,8 @@ class PackedFields(object):
 
     def cache(self, attr, lookup_func):
         if not self._cache.has_key(attr):
-            self.set_cache(attr, lookup_func(attr))
+            self._cache[attr] = lookup_func(attr)
         return self._cache[attr]
-
-    def set_cache(self, attr, val):
-        self._cache[attr] = val
 
     # Generic attribute accessor
     # Note that we unpack the single item from the tuple in __getattr__ due to
@@ -101,7 +98,7 @@ class PackedFields(object):
         """Dynamically update attributes in self.format_table, otherwise call
         up to object's version."""
         if attr in self.format_table:
-            self.set_cache(attr, val)
+            self._cache[attr] = val
             self.repacket(attr, [val])
         else:
             # This makes properties and non-format_table attributes work
