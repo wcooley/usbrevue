@@ -139,8 +139,36 @@ class TestPacket(unittest.TestCase,TestUtil):
         self.packet.data[0] = 0xff
         self.assertEqual(self.packet.data, [0xff], 'Modified data[0] = 0xff')
 
-        #print >>sys.stderr, 'repack[-1]:', pformat(self.packet.repack()[-1])
-        #self.assertEqual(self.packet.repack()[-1], chr(0xff), 'repack modified data')
+    def test_copy(self):
+        packet2 = self.packet.copy()
+
+        self.assertNotEqual(id(packet2), id(self.packet))
+        self.assertNotEqual(id(packet2.data), id(self.packet.data))
+
+        packet2.urb = 0xff
+        self.assertNotEqual(packet2.urb, self.packet.urb)
+
+class TestPacketData(unittest.TestCase,TestUtil):
+
+    def setUp(self):
+        pcap = pcapy.open_offline(test_data('usb-single-packet-8bytes-data.pcap'))
+        self.packet = Packet(*pcap.next())
+
+    def test_data(self):
+        self.assertEqual(self.packet.data, [1, 0, 6, 0, 0, 0, 0, 0],
+                            'Unmodified data')
+        self.assertEqual(self.packet.datalen, 8,
+                            'datalen of unmodified data')
+        self.assertEqual(self.packet.datalen, len(self.packet.data),
+                            'len of Packet.data')
+
+        self.packet.data[0] = 0xff
+        self.assertEqual(self.packet.data, [0xff, 0, 6, 0, 0, 0, 0, 0],
+                            'Modified data[0] = 0xff')
+
+        self.packet.data[-1] = 0xff
+        self.assertEqual(self.packet.repack()[-1], chr(0xff),
+                            'repack modified data')
 
     def test_copy(self):
         packet2 = self.packet.copy()
@@ -151,6 +179,12 @@ class TestPacket(unittest.TestCase,TestUtil):
         packet2.urb = 0xff
         self.assertNotEqual(packet2.urb, self.packet.urb)
 
+        packet2.data[0] = 0xbb
+        self.assertNotEqual(packet2.data, self.packet.data)
+
+
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPacket)
+    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestPacketData))
     unittest.TextTestRunner(verbosity=3).run(suite)
