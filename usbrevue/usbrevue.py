@@ -55,8 +55,7 @@ class PackedFields(object):
     def __init__(self, datapack=None):
         self._cache = dict()
 
-        if datapack != None:
-            self.datapack = datapack
+        self.datapack = datapack
 
     def cache(self, attr, lookup_func):
         if not self._cache.has_key(attr):
