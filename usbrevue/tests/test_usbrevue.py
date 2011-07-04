@@ -34,17 +34,33 @@ class TestPackedFields(unittest.TestCase,TestUtil):
                 )
         self.assertEqual(len(test_data), 10)
 
+        self.set_and_test = partial(self.setattr_and_test, self.fieldpack)
+
     def test_attr_zero(self):
         self.assertEqual(self.fieldpack.zero, 0xf642b380)
+
+        self.set_and_test('zero', 0xffffffff)
+        self.set_and_test('zero', 0x00000000)
+
+        self.assertEqual(self.fieldpack.repack()[:4], '\x00' * 4)
 
     def test_attr_two(self):
         self.assertEqual(self.fieldpack.two, 'B')
 
+        self.set_and_test('two', 'b')
+        self.assertEqual(self.fieldpack.repack()[2], 'b')
+
     def test_attr_four(self):
         self.assertEqual(self.fieldpack.four, False)
 
+        self.set_and_test('four', True)
+        self.set_and_test('four', None)
+
     def test_attr_five(self):
         self.assertEqual(self.fieldpack.five, 'A')
+        self.assertEqual(self.fieldpack.repack()[5], 'A')
+        self.set_and_test('five', 'a')
+        self.assertEqual(self.fieldpack.repack()[5], 'a')
 
 
 class TestPacket(unittest.TestCase,TestUtil):
@@ -224,4 +240,4 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
-    unittest.TextTestRunner(verbosity=3).run(suite)
+    unittest.TextTestRunner(verbosity=2).run(suite)
