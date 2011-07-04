@@ -6,6 +6,7 @@ import struct
 import sys
 import unittest
 from functools import partial
+from pprint import pformat
 
 import pcapy
 
@@ -125,6 +126,26 @@ class TestPacket(unittest.TestCase,TestUtil):
     # FIXME Should this be an xfer_type = isoc only attribute also?
     def test_ndesc(self):
         self.assertEqual(self.packet.ndesc, 0, 'Unmodified ndesc')
+
+    def test_data(self):
+        self.assertEqual(self.packet.data, [], 'Unmodified data')
+        self.assertEqual(self.packet.datalen, 0, 'Unmodified datalen')
+
+        self.packet.data.append(0)
+        self.assertEqual(self.packet.data, [0], 'Modified data[0] = 0')
+        #self.assertEqual(self.packet.datalen, 1, 'Modified datalen')
+
+        self.packet.data[0] = 0xff
+        self.assertEqual(self.packet.data, [0xff], 'Modified data[0] = 0xff')
+
+        print >>sys.stderr, 'repack[-1]:', pformat(self.packet.repack()[-1])
+        self.assertEqual(self.packet.repack()[-1], chr(0xff), 'repack modified data')
+
+    def test_copy(self):
+        packet2 = self.packet.copy()
+
+        self.assertNotEqual(id(packet2), id(self.packet))
+        self.assertNotEqual(id(packet2.data), id(self.packet.data))
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestPacket)

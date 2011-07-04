@@ -227,7 +227,7 @@ class Packet(PackedFields):
         return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
     def copy(self):
-        new_packet = Packet(self._hdr, self._pack)
+        new_packet = Packet(self.hdr, self.datapack)
         return new_packet
 
 
