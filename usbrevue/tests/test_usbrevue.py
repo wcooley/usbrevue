@@ -5,6 +5,7 @@ import os.path
 import struct
 import sys
 import unittest
+from array import array
 from functools import partial
 from pprint import pformat
 
@@ -12,6 +13,39 @@ import pcapy
 
 from tutil import *
 from usbrevue import *
+
+class TestPackedFields(unittest.TestCase,TestUtil):
+
+    def setUp(self):
+                        #0   1   2   3   4   5678   9
+        test_data =     '\x80\xb3\x42\xf6\x00ABC\x01\x81'
+
+        self.fieldpack = PackedFields(array('c', test_data))
+
+        self.fieldpack.format_table = dict(
+                    zero    = ( '<I', 0),   # 0-3
+                    two     = ( '<c', 2),
+                    four    = ( '<?', 4),
+                    five    = ( '<c', 5),
+                    six     = ( '<c', 6),
+                    seven   = ( '<c', 7),
+                    eight   = ( '<h', 8),   # 8-9
+                    nine    = ( '<B', 9),
+                )
+        self.assertEqual(len(test_data), 10)
+
+    def test_attr_zero(self):
+        self.assertEqual(self.fieldpack.zero, 0xf642b380)
+
+    def test_attr_two(self):
+        self.assertEqual(self.fieldpack.two, 'B')
+
+    def test_attr_four(self):
+        self.assertEqual(self.fieldpack.four, False)
+
+    def test_attr_five(self):
+        self.assertEqual(self.fieldpack.five, 'A')
+
 
 class TestPacket(unittest.TestCase,TestUtil):
 
@@ -185,6 +219,9 @@ class TestPacketData(unittest.TestCase,TestUtil):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestPacket)
-    suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestPacketData))
+    loader = unittest.defaultTestLoader
+    suite = unittest.TestSuite()
+    suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
+    suite.addTest(loader.loadTestsFromTestCase(TestPacket))
+    suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
     unittest.TextTestRunner(verbosity=3).run(suite)
