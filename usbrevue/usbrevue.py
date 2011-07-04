@@ -2,6 +2,7 @@
 import sys
 
 from array import array
+from collections import MutableSequence, Sequence
 from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
@@ -123,7 +124,11 @@ class PackedFields(object):
 
     @datapack.setter
     def datapack(self, value):
-        self.__dict__['datapack'] = value
+        if isinstance(value, Sequence) and \
+                not isinstance(value, MutableSequence):
+            self.__dict__['datapack'] = array('c', value)
+        else:
+            self.__dict__['datapack'] = value
 
     def repack(self):
         """

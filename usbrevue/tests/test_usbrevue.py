@@ -20,7 +20,7 @@ class TestPackedFields(unittest.TestCase,TestUtil):
                         #0   1   2   3   4   5678   9
         test_data =     '\x80\xb3\x42\xf6\x00ABC\x01\x81'
 
-        self.fieldpack = PackedFields(None, array('c', test_data))
+        self.fieldpack = PackedFields(None, test_data)
 
         self.fieldpack.format_table = dict(
                     zero    = ( '<I', 0),   # 0-3
