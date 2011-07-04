@@ -250,19 +250,21 @@ class Packet(PackedFields):
         print "length = %d" % (self.length)
         print "len_cap = %d" % (self.len_cap)
         # setup is only meaningful if flag_setup == 's')
-        if (self.flag_setup == 's'):
+        if self.flag_setup == 's':
             print "setup = %d" % (self.setup)
         # error_count and numdesc are only meaningful for isochronous transfers
         # (xfer_type == 0)
-        if (self.xfer_type == 0):
+        #if (self.xfer_type == 0):
+        if self.is_isochronous_xfer():
             print "error_count = %d" % (self.error_count)
             print "numdesc = %d" % (self.numdesc)
         # interval is only meaningful for isochronous or interrupt transfers)
         # (xfer_type in [0,1]))
-        if (self.xfer_type in [0,1]):
+        #if (self.xfer_type in [0,1]):
+        if self.is_isochronous_xfer() or self.is_interrupt_xfer():
             print "interval = %d" % (self.interval)
         # start_frame is only meaningful for isochronous transfers)
-        if (self.xfer_type == 0):
+        if self.is_isochronous_xfer():
             print "start_frame = %d" % (self.start_frame)
         print "xfer_flags = %d" % (self.xfer_flags)
         print "ndesc = %d" % (self.ndesc)

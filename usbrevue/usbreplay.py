@@ -7,6 +7,8 @@ import pcapy
 from usbrevue import Packet
 import optparse
 import traceback
+import time
+import math
 #from optparse import OptionParser
 
 #For skype handset
@@ -54,8 +56,10 @@ class Replayer(object):
         argument contains either defaults values for these fields or 
         user designated values.
         """
-
-        print '\nIn __init__'
+        self.urbs = []
+        self.debug = options.debug
+        if self.debug:
+            print '\nIn __init__'
         self.vid = options.vid
         self.pid = options.pid
         self.logical_cfg = options.logical_cfg
@@ -63,7 +67,8 @@ class Replayer(object):
         self.logical_alt_setting = options.logical_alt_setting
         self.ep_address = options.ep_address
         self.logical_ep = options.ep_address & 0x0f
-        print 'Logical ep = %d' % self.logical_ep
+        if self.debug:
+            print 'Logical ep = %d' % self.logical_ep
 
         self.device = self.get_usb_device(self.vid, self.pid)
         if self.device is None:
@@ -71,7 +76,8 @@ class Replayer(object):
 
         self.set_configuration(self.logical_cfg)
         self.set_interface(self.logical_iface, self.logical_alt_setting)
-        self.print_descriptor_info()
+        if self.debug:
+            self.print_descriptor_info()
 
         self.ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
         #assert self.ep is not None
@@ -90,12 +96,14 @@ class Replayer(object):
         print 'In initialize_descriptors'
 
         if (packet.epnum != self.ep_address):
-            print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
+            if self.debug:
+                print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
             self.ep_address = packet.epnum
 
         self.set_configuration(self.logical_cfg)
         self.set_interface(self.logical_iface, self.logical_alt_setting)
-        self.print_descriptor_info()
+        if self.debug:
+            self.print_descriptor_info()
         # set_configuration is used to enable a device and should contain
         # the value of bConfigurationValue of the desired configuration
         # descriptor in the lower byte of wValue to select which configuration
@@ -109,12 +117,14 @@ class Replayer(object):
         Utility function to reset device. 
         and endpoint address.
         """
-        print 'In reset_device'
+        if self.debug:
+            print 'In reset_device: resetting device'
         dev = self.device
         dev.reset()
         # TODO: Do I need to sleep here for awhile?
         res = dev.is_kernel_driver_active(self.logical_iface)
         if not res:
+            print 'Re-attaching kernal driver'
             dev.attach_kernel_driver(self.logical_iface)
 
 
@@ -153,7 +163,8 @@ class Replayer(object):
         """ 
         Get the usb.core.Device object based on vendorId and productId.  
         """
-        print 'In get_usb_device'
+        if self.debug:
+            print 'In get_usb_device'
         device = usb.core.find(idVendor=vid, idProduct=pid)
         if device is None:
             raise ValueError('USB Device with vendorId', vid, ', and productId', pid, 'not found')
@@ -324,7 +335,8 @@ class Replayer(object):
         Example to set the second configuration:  
           config = dev[1]
         """
-        print 'In set_configuration'
+        if self.debug:
+            print 'In set_configuration'
         self.cfg = self.device[logical_cfg]
         #dev.set_configuration(logical_cfg)
 
@@ -335,7 +347,8 @@ class Replayer(object):
         Example to access the first interface and first alternate setting:  
           iface = cfg[(0,0)]
         """
-        print 'In set_interface'
+        if self.debug:
+            print 'In set_interface'
         self.iface = self.cfg[(logical_iface, logical_alt_setting)]
         try:
             self.device.set_interface_altsetting(self.iface)
@@ -382,44 +395,80 @@ class Replayer(object):
     #    device.set_configuration(cfg_num)
 
 
+    def wait(self, packettime):
+        # I think time.time is accurate to 1 microsecond
+        # math.modf returns the fractional and integer parts of X
+        starttime = time.time()
+        thistime = starttime
+        timetoend = starttime + packettime
+        if self.debug:
+            print 'Start time  = %0.9f us' % starttime
+            print 'Packet time = %0.9f us' % packettime
+            print 'Time to end = %0.9f us' % timetoend
+        #(startfractpart, startintpart) = math.modf(starttime)
+        #print 'startfractpart = %d' % startfractpart
+        #print 'startintpart = %d' % startintpart
+        #(thisfractpart, thisintpart) = (startfractpart, startintpart)
+        #print 'startfractpart, startintpart = %d, %d' % (startfractpart, startintpart)
+        #starttime = startfracpart
+        #print 'Now Start time  = %0.9f us' % starttime
+     
+        #if self.debug:
+        #    print 'Start time(fract)  = %0.9f us' % starttime
+        #    print 'Packet time = %0.9f us' % packettime 
+        #    #print 'Last time   = %0.9f us' % lasttime
+        ## Wait for awhile before sending next usb packet
+        while timetoend < thistime:
+            thistime = time.time();  # I think this is in microseconds
+            if self.debug:
+                print 'This time = %0.9f us' % thistime
+            #exit(1)
+        return thistime    # thistime to be used for the next lasttime
+
 
     def run(self, pcap, out):
         """
         Run the replayer loop.  The loop will get each consecutive pcap 
         packet and replay it as nearly as possible.
         """
-        print 'In run'
-        initialized = False
+        if self.debug:
+            print 'Entering Replayer run loop'
+        lasttime = time.time();  # I think this is in microseconds
         dev = self.device
         i = 0
-        self.print_device_enumeration_tree()
-        self.print_device_descriptor_fields()
-        self.print_cfg_descriptor_fields()
-        self.print_iface_descriptor_fields()
-        self.print_ep_descriptor_fields()
+        if self.debug:
+            self.print_device_enumeration_tree()
+            self.print_device_descriptor_fields()
+            self.print_cfg_descriptor_fields()
+            self.print_iface_descriptor_fields()
+            self.print_ep_descriptor_fields()
         res = dev.is_kernel_driver_active(self.logical_iface)
         # TODO: make this more safe.  How?
         if res:
+            print 'Detaching kernal driver'
             self.device.detach_kernel_driver(self.logical_iface)
 
         while True:
             try:
-                print 'In run: Loop ', i
+                if self.debug:
+                    print '------------------------------------------'
+                    print 'In run: Starting loop ', i
                 i += 1
                 hdr, pack = pcap.next()
                 if hdr is None:
                     break # EOF
 
                 packet = Packet(hdr, pack)
-                print '\nIn run: Dumping pcap packet data ...'
-                out.dump(hdr, packet.repack())
+                if self.debug:
+                    #print '\nIn run: Dumping pcap packet data ...'
+                    #out.dump(hdr, packet.repack())
+                    print 'In run: Printing pcap field information ...'
+                    packet.print_pcap_fields()
+                    print 'In run: Printing pcap summary information ...'
+                    packet.print_pcap_summary()
 
-                print '\nIn run: Printing pcap field information ...'
-                packet.print_pcap_fields()
-
-                print '\nIn run: Printing pcap summary information ...'
-                packet.print_pcap_summary()
-
+                # Wait for awhile before sending next usb packet
+                self.wait(packet.ts_usec)
                 self.send_usb_packet(packet)
         
                 #sys.exit("In run: Early exit for debug purposes")
@@ -439,7 +488,8 @@ class Replayer(object):
         It can also be a submission from the host or a callback from the 
         device.  In any case, there may or may not be a data payload.
         """
-        print 'In send_usb_packet'
+        if self.debug:
+            print 'In send_usb_packet'
         ret_array = []
         send_array = []
         ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
@@ -449,25 +499,37 @@ class Replayer(object):
         #if packet.flag_setup == 's':
         if packet.flag_setup == 's':
             #
-            print 'In send_usb_packet: this is a setup packet'
+            if self.debug:
+                print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
             bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
+            if packet.urb not in self.urbs:
+                if self.debug:
+                    print 'Appending %d to urb list' % packet.urb
+                self.urbs.append(packet.urb)
+                if self.debug:
+                    print 'Current urbs = ', self.urbs
             #if bmRequestType == IN_DIRECTION:  # IN means get bytes to read
 
             # IN means read bytes from device to host.
             if bmRequestType == usb.util.ENDPOINT_IN: 
                 # If no data payload then numbytes should be 0
+                if self.debug:
+                    print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
                 numbytes = packet.data[4]
                 ret_array = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, numbytes)
-                print stderr, '*************    Return array before join =', ret_array
+                if self.debug:
+                    print stderr, '*************    Return array before join =', ret_array
                 if len(ret_array) != numbytes:
                     print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), numbytes)
                 ret_array = ''.join([chr(x) for x in ret])
-                print '*************    Return array after join =', ret_array
+                if self.debug:
+                    print '*************    Return array after join =', ret_array
 
             # OUT means write bytes from host to device.
             elif bmRequestType == usb.util.ENDPOINT_OUT:
                 # If no data payload then send_array should be None
-                print 'In send_usb_packet: OUT - writing from host to device'
+                if self.debug:
+                    print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
                 send_array = packet.data[4:] 
                 numbytes = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, send_array)
                 if numbytes != len(send_array):
@@ -476,42 +538,76 @@ class Replayer(object):
         # Otherwise check to see if it is a submission packet.
         # Submission means xfer from host to USB device.
         elif packet.event_type == 'S':       
-            print 'In send_usb_packet: this is a submission packet'
+            if self.debug:
+                print 'In send_usb_packet: this is a submission packet for urb id = ', packet.urb
+            # Every submission or setup packet should have a callback?
+            if packet.urb not in self.urbs:
+                if self.debug:
+                    print 'Appending %d to urb list' % packet.urb
+                self.urbs.append(packet.urb)
+                if self.debug:
+                    print 'Current urbs = ', self.urbs
+            #else:
+            #   raise ValueError('Packet urb id=%d already has a submission' % packet.urb)
             send_array = packet.data[5:]
-            print 'Packet data is: ', packet.data
+            if self.debug:
+                print 'Packet data is: ', packet.data
             #numbytes = ep.write(self.ep_address, array, self.iface_num, TIMEOUT)
 
             # Can also do:
             #   dev.write(ep_address, send_array, interface_number, TIMEOUT)
             if packet.data:
                 numbytes = ep.write(send_array)
-                print 'Wrote %d bytes to USB device', numbytes, ', expected to write %d bytes ', len(send_array)
+                if self.debug:
+                    print 'Wrote %d submission bytes to USB device', numbytes, ', expected to write %d bytes ', len(send_array)
                 if numbytes != len(send_array):
                     print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(send_array))
             else:
-                print 'Packet data is empty.  Not sending any data'
+                if self.debug:
+                    print 'Packet data is empty.  No submission data to send.'
 
         # Otherwise check to see it it is a callback packet.
         # Callback means xfer from USB to host.
         elif packet.event_type == 'C':   
-            print 'In send_usb_packet: this is a callback packet'
+            if self.debug:
+                print 'In send_usb_packet: this is a callback packet for urb id = ', packet.urb
             #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
             #ret_array = ep.read(packet.datalen)
+            # Every submission should have a callback
+            if packet.urb in self.urbs:
+                if self.debug:
+                    print 'Removing %d from urb list' % packet.urb
+                self.urbs.remove(packet.urb)
+                if self.debug:
+                    print 'Current urbs = ', self.urbs
+            else:
+               raise ValueError('Packet urb id=%d has a callback but not a submission' % packet.urb)
             try:
                 #ret_array = ep.read(len(packet.data))
                 #ret_array = ep.read(packet.length)
                 #ret_array = self.device.read(self.logical_ep, packet.length, self.logical_iface)
-                ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
-                if ret_array:
-                    print '%d data items read.  Data = ' % (len(ret_array), ret_array)
-                    if numbytes != len(ret_array):
-                        print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(ret_array))
+                if self.debug:
+                    print 'Attempting to read %d bytes from device to host' % len(packet.data)
+                numbytes = len(packet.data)
+                if numbytes:
+                    ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+                    if self.debug:
+                        print 'Finished attempting to read %d callback bytes from device to host' % len(packet.data)
+                        print 'Actually read %d callback bytes from device to host' % len(ret_array)
+                    if ret_array:
+                        if self.debug:
+                            print '%d data items read from callback packet.  Data = ' % (len(ret_array), ret_array)
+                        if numbytes != len(ret_array):
+                            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(ret_array))
+                    else:
+                        if self.debug:
+                            print 'No data items were read from callback packet.  '
                 else:
-                    print 'No data items were read.  '
+                    if self.debug:
+                        print 'No callback bytes to read: length of packet.data is 0'
             
             except:
-                print 'Error when trying to read data from callback'
-                print 'Data read was ', ret_array
+                print 'Did not read any data from callback: resetting device'
                 self.reset_device()
                 #print 'Printing traceback ...'
                 #traceback.print_exc()
@@ -587,8 +683,9 @@ def get_arguments(argv):
                      )
 
     options, remaining_args = parser.parse_args()
-    print 'Options:  %s' % options
-    print 'Remaining_args:  %s' % remaining_args
+    if options.debug:
+        print 'Options:  %s' % options
+        print 'Remaining_args:  %s' % remaining_args
     return options
 
 
@@ -597,19 +694,21 @@ def print_options(options):
     Utility function to print out command line options or their defaults.
     """
 
-    print 'options.infile = %s' % options.infile
-    print 'options.vid = 0x%x' % options.vid
-    print 'options.pid = 0x%x ' % options.pid
-    print 'options.cfg = %d' % options.logical_cfg
-    print 'options.iface = %d' % options.logical_iface
-    print 'options.altsetting = %d' % options.logical_alt_setting
-    print 'options.epaddress = 0x%x' % options.ep_address
+    if options.debug:
+        print 'options.infile = %s' % options.infile
+        print 'options.vid = 0x%x' % options.vid
+        print 'options.pid = 0x%x ' % options.pid
+        print 'options.cfg = %d' % options.logical_cfg
+        print 'options.iface = %d' % options.logical_iface
+        print 'options.altsetting = %d' % options.logical_alt_setting
+        print 'options.epaddress = 0x%x' % options.ep_address
     if options.debug == 1: 
         dbg = 'True'
     else: 
         dbg = 'False'
 
-    print 'options.debug = %s' % dbg
+    if options.debug:
+        print 'options.debug = %s' % dbg
 
 
 if __name__ == '__main__':
@@ -617,10 +716,21 @@ if __name__ == '__main__':
     # to stdout (for debug info), convert input stream to USB packets, and 
     # send USB packets to the device or stdout.
     #args_dict = {}
+    #print '1'
     options = get_arguments(sys.argv)
+    #print '2'
     print_options(options)
+    #print '3'
     pcap = pcapy.open_offline('-')
+    #print '4'
+    #if not sys.stdout.isatty():       # What is this for?
     out = pcap.dump_open('-')
+    #else:
+    #    out = None
+
+    #print '5'
     replayer = Replayer(options)
+    #print '6'
     replayer.run(pcap, out)
+    #print '7'
 
