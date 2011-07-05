@@ -7,6 +7,8 @@ from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
 
+from util import reverse_update_dict
+
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
     urb         = ('=Q',  0),
@@ -45,6 +47,8 @@ USBMON_TRANSFER_TYPE = dict(
     bulk        = 3,
 )
 
+# Add the reverse to the dict for convenience
+reverse_update_dict(USBMON_TRANSFER_TYPE)
 
 class PackedFields(object):
     """Base class for field decodings/unpacking."""
