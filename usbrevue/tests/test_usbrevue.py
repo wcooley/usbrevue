@@ -238,7 +238,41 @@ class TestPacketData(unittest.TestCase,TestUtil):
         packet2.data[0] = 0xbb
         self.assertNotEqual(packet2.data, self.packet.data)
 
+class TestSetupField(unittest.TestCase,TestUtil):
 
+    def setUp(self):
+        pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
+        self.packet = Packet(*pcap.next())
+        self.setup = self.packet.setup
+
+    def test_bmrequest_type(self):
+        self.assertEqual(self.setup.bmRequestType, 0b10000000)
+        # FIXME: Write
+        #self.setup.bmRequestType = 0b00000000
+        #self.assertEqual(self.setup.bmRequestType, 0b00000000)
+
+    def test_bmrequest_type_direction(self):
+        self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
+        # FIXME: Write
+        #self.setup.bmRequestTypeDirection = 'host_to_device'
+        #self.assertEqual(self.setup.bmRequestTypeDirection, 'host_to_device')
+
+    def test_bmrequest_type_type(self):
+        self.assertEqual(self.setup.bmRequestTypeType, 'standard')
+        self.assertEqual(REQUEST_TYPE_TYPE[self.setup.bmRequestTypeType],
+                         REQUEST_TYPE_TYPE['standard'])
+        # FIXME: Write
+        #self.setup.bmRequestTypeType = 'class_'
+        #self.assertEqual(self.setup.bmRequestTypeType, 'class_')
+
+    def test_brequest(self):
+        self.assertEqual(self.setup.bRequest,
+                        SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
+        self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
+                        'GET_DESCRIPTOR')
+
+    #def test_wValue(self):
+        #self.assertEqual(self.setup.wValue, 'DEVICE')
 
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
@@ -246,4 +280,5 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
+    suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
     unittest.TextTestRunner(verbosity=2).run(suite)
