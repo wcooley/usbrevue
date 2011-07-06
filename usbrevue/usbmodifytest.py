@@ -14,7 +14,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
     """
 
-    modifier = usbmodify.Modifier('test_routine_file', '')
+    modifier = usbmodify.Modifier('', 'test_routine_file', '')
 
     def test_mod_urb(self):
         f = open('test_routine_file', 'w')
@@ -231,7 +231,7 @@ class ModDataByExp(unittest.TestCase):
     """
 
     def test_add(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] + data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] + data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -240,7 +240,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_sub(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] - data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] - data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -249,7 +249,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_mult(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] * data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] * data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -258,7 +258,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_div(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] / (data[2] + 1)'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] / (data[2] + 1)'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -267,7 +267,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_and(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] & data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] & data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -276,7 +276,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_or(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] | data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] | data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -285,7 +285,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_not(self):
-        modifier = usbmodify.Modifier('', ['data[0] = ~ data[1]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = ~ data[1]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -294,7 +294,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_xor(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] ^ data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] ^ data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -303,7 +303,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_and(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] and data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] and data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -312,7 +312,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_or(self):
-        modifier = usbmodify.Modifier('', ['data[0] = data[1] or data[2]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] or data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -321,7 +321,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_not(self):
-        modifier = usbmodify.Modifier('', ['data[0] = not data[1]'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = not data[1]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -330,7 +330,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_xor(self):
-        modifier = usbmodify.Modifier('', ['data[0] = bool(data[1]) ^ bool(data[2])'])
+        modifier = usbmodify.Modifier('', '', ['data[0] = bool(data[1]) ^ bool(data[2])'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -342,7 +342,7 @@ class ModDataByExp(unittest.TestCase):
 class BadData(unittest.TestCase):
     """Check that invalid attribute values will be rejected."""
 
-    modifier = usbmodify.Modifier('test_routine_file', '')
+    modifier = usbmodify.Modifier('', 'test_routine_file', '')
 
     def test_bad_urb(self):
         f = open('test_routine_file', 'w')
@@ -350,13 +350,8 @@ class BadData(unittest.TestCase):
         f.close()
 
         for packet in packet_generator():
-<<<<<<< local
-            # self.modifier.apply_routine_file(packet)
-            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
 
-=======
-            self.assertRaises(struct.error, self.modifier.apply_routine_file, packet)
->>>>>>> other
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
 
     def test_bad_type(self):
         f = open('test_routine_file', 'w')
@@ -364,14 +359,168 @@ class BadData(unittest.TestCase):
         f.close()
 
         for packet in packet_generator():
-<<<<<<< local
-            # self.modifier.apply_routine_file(packet)
             self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
 
 
-=======
-            self.assertRaises(struct.error, self.modifier.apply_routine_file, packet)
->>>>>>> other
+    def test_bad_xfer_type(self):
+        f = open('test_routine_file', 'w')
+        f.write('xfer_type = -44')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_epnum(self):
+        f = open('test_routine_file', 'w')
+        f.write('epnum = AB')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_devnum(self):
+        f = open('test_routine_file', 'w')
+        f.write('devnum = YZ')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_busnum(self):
+        f = open('test_routine_file', 'w')
+        f.write('busnum = -100')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_flag_setup(self):
+        f = open('test_routine_file', 'w')
+        f.write('flag_setup = C')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_ts_sec(self):
+        f = open('test_routine_file', 'w')
+        f.write('ts_sec = 100 ** 100')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_ts_usec(self):
+        f = open('test_routine_file', 'w')
+        f.write('ts_usec = -100 ** 100')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_status(self):
+        f = open('test_routine_file', 'w')
+        f.write('status = "a string"')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_length(self):
+        f = open('test_routine_file', 'w')
+        f.write('length = -1')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_len_cap(self):
+        f = open('test_routine_file', 'w')
+        f.write('len_cap = 10 ** 10')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_setup(self):
+        f = open('test_routine_file', 'w')
+        f.write('if flag_setup == "S": setup = [-4]')
+        f.close()
+
+        for packet in packet_generator():
+            if packet.flag_setup == "S":
+                self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_error_count(self):
+        f = open('test_routine_file', 'w')
+        f.write('if xfer_type == 0: error_count = 4.5')
+        f.close()
+
+        for packet in packet_generator():
+            if packet.xfer_type == 0:
+                self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_numdesc(self):
+        f = open('test_routine_file', 'w')
+        f.write('if xfer_type == 0: numdesc = -7 ** 0.5')
+        f.close()
+
+        for packet in packet_generator():
+            if packet.xfer_type == 0:
+                self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_interval(self):
+        f = open('test_routine_file', 'w')
+        f.write('if xfer_type in [0, 1]: interval = -2.5 ** 100')
+        f.close()
+
+        for packet in packet_generator():
+            if packet.xfer_type in [0, 1]:
+                self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_start_frame(self):
+        f = open('test_routine_file', 'w')
+        f.write('if xfer_type == 0: start_frame = 500.0 * 0.284794')
+        f.close()
+
+        for packet in packet_generator():
+            if packet.xfer_type == 0:
+                self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_xfer_flags(self):
+        f = open('test_routine_file', 'w')
+        f.write('xfer_flags = "abcde"')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+    def test_bad_ndesc(self):
+        f = open('test_routine_file', 'w')
+        f.write('ndesc = -0.1 ** -100')
+        f.close()
+
+        for packet in packet_generator():
+            self.assertRaises(ValueError, self.modifier.apply_routine_file, packet)
+
+
+
 
 def packet_generator():
     pcap = pcapy.open_offline('usbmodifytestdump.pcap')

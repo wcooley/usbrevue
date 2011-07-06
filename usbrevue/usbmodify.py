@@ -119,7 +119,7 @@ class Modifier(object):
         if self.routine_file is not None:
             try:
                 execfile(self.routine_file, {}, packet)
-            except (ValueError, struct.error) as err:
+            except (ValueError, struct.error, NameError) as err:
                 raise ValueError, 'There was an error converting a packet to a binary string (' + err.message + ')'
 
 
@@ -138,7 +138,6 @@ class Modifier(object):
 
                 if len(packet.data) > max_offset:
                     exec(exp, {}, packet)
-
 
 
     # accessors and mutators
