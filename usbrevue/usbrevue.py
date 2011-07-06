@@ -47,7 +47,19 @@ USBMON_TRANSFER_TYPE = dict(
 
 
 class PackedFields(object):
-    """Base class for field decodings/unpacking."""
+    """Base class for field decodings/unpacking.
+
+    The PackedFields class provides access to named fields in binary data with
+    on-demand packing and unpacking.
+
+    A PackedFields object is defined by a format table and sequence of data.
+    The format table lists the name of the field (which becomes an object
+    attribute), a `struct` format code and byte offset.
+
+    The format table is a dict with entries with the following format:
+
+        key: (format, offset)
+    """
 
     # This must exist so __setattr__ can find key 'format_table' missing from
     # self.format_table when it is being initialized.
