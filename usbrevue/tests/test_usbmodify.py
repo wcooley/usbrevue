@@ -1,8 +1,10 @@
+#!/usr/bin/env python
 """Unit test for usbmodify.py"""
 
 from __future__ import division
 
 import pcapy
+import tutil
 import usbmodify
 from usbrevue import Packet
 import unittest
@@ -523,7 +525,7 @@ class BadData(unittest.TestCase):
 
 
 def packet_generator():
-    pcap = pcapy.open_offline('usbmodifytestdump.pcap')
+    pcap = pcapy.open_offline('testdump_usbmodify.pcap')
 
     while True:
         (hdr, pack) = pcap.next()
