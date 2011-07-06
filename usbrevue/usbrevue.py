@@ -231,6 +231,7 @@ class Packet(PackedFields):
         if self.is_isochronous_xfer():
             return self.cache('error_count', lambda a: self.unpacket(a)[0])
         else:
+            # FIXME Raise WrongPacketXferType instead
             return 0
 
     @property
@@ -238,6 +239,7 @@ class Packet(PackedFields):
         if self.is_isochronous_xfer():
             return self.cache('numdesc', lambda a: self.unpacket(a)[0])
         else:
+            # FIXME Raise WrongPacketXferType instead
             return 0
 
     # interval is only meaningful for isochronous or interrupt transfers
@@ -247,6 +249,7 @@ class Packet(PackedFields):
         if self.is_isochronous_xfer() or self.is_interrupt_xfer():
             return self.cache('interval', lambda a: self.unpacket(a)[0])
         else:
+            # FIXME Raise WrongPacketXferType instead
             return 0
 
     @property
@@ -255,6 +258,7 @@ class Packet(PackedFields):
         if self.is_isochronous_xfer():
             return self.cache('start_frame', lambda a: self.unpacket(a)[0])
         else:
+            # FIXME Raise WrongPacketXferType instead
             return 0
 
     # Boolean tests for transfer types
@@ -276,6 +280,9 @@ class Packet(PackedFields):
 
 
     def print_pcap_fields(self):
+        # FIXME This should be __str__ and can probably do most or all of this
+        # programmatically--iterating through each attribute by offset.
+        # Requires that inappropriate attributes raise exceptions, etc.
         """
         Print detailed packet information for debug purposes.
         Assumes header exists.
