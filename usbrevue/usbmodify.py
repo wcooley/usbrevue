@@ -12,11 +12,11 @@ import gflags
 import re
 import struct
 from usbrevue import Packet
-import traceback
 
 
 FLAGS = gflags.FLAGS
 
+gflags.DEFINE_string('mod', None, 'A Python module file containing your custom Python code to be executed.')
 gflags.DEFINE_string('routine', None, 'Filename containing your modification routine.')
 gflags.DEFINE_list('exp', None, 'A comma-separated list of expressions to be applied at data payload byte offsets. Offsets are referenced as "data[0], data[1], ...". Arithmetic operators (+, -, *, /), logical operators (and, or, not), and bitwise operators (^, &, |, !) are supported. For logical xor, use "bool(a) ^ bool(b)".')
 gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified.')
@@ -28,65 +28,99 @@ class Modifier(object):
     and Dumper objects to work with.
 
     """
-    def __init__(self, routine_file, cmdline_exps, pcap=None, out=None):
-        self.pcap = pcap
-        self.out = out
+    def __init__(self, module_file, routine_file, cmdline_exps):
+        self.pcap = None
+        self.out = None
+        self.module_file = module_file
         self.routine_file = routine_file
         self.cmdline_exps = cmdline_exps
-        self.num_modified = 0 # keep track of the number of modified packets
+
 
     def run(self):
-        """Continuously read packets, apply the modification
-        routine(s), and write out all packets, whether modified or
-        not.
+        """If a user-supplied module file is present, simply run that
+        module. Otherwise, Pass each packet from the packet stream
+        directly to commit_packet, where the user-supplied routines
+        will be applied.
 
         """
-        # continuously read packets, apply the modification routine, and write out
+
+        if self.module_file is not None:
+            self.run_module_file()
+        else:
+            for packet in self.packet_generator('-'):
+                self.commit_packet(packet)
+
+
+    def run_module_file(self):
+        """Run the user-supplied module implementing a function called
+        modify. It is a assumed that modify will take two arguments,
+        both functions: the packet generator and the packet
+        committer.
+
+        """
+        modfile = __import__(self.module_file)
+        try:
+            modfile.modify(self.packet_generator, self.commit_packet)
+        except (AttributeError, TypeError) as err:
+            sys.stderr.write(err.message + '\n')
+            sys.stderr.write('(Your module must implement a function called modify with two arguments, both functions: a packet generator and a packet committer)\n')
+            sys.exit(1)
+
+
+    def packet_generator(self, input_stream='-'):
+        """Open a pcap stream specified by input_stream and yield each
+        packet in the stream. Also create the Dumper object and store
+        it for later use, since we need the Reader object created here
+        in order to create the Dumper.
+
+        """
+        self.pcap = pcapy.open_offline(input_stream)
+
+        # create the Dumper object now that we have a Reader
+        self.out = self.pcap.dump_open('-')
+
         while True:
             (hdr, pack) = self.pcap.next()
             if hdr is None:
-                break # EOF
-            packet = Packet(hdr, pack)
+                return # EOF
+            # keep track of the most recent yielding packet, for diffing
+            self.orig_packet = Packet(hdr, pack)
+            yield Packet(hdr, pack)
 
-            # keep track of which parts of the packet, if any, are modified
-            modified = {}
-            for member in packet.fields:
-                modified[member] = False
-            orig_packet = packet.copy()
-            self.apply_routine_file(packet)
-            self.apply_cmdline_exps(packet)
 
-            # figure out which parts of the packet were modified and print out
-            # the changed parts (only with --verbose flag)
-            notice_printed = False
-            for member in packet.fields:
-                if eval('packet.' + member) != eval('orig_packet.' + member):
-                    self.num_modified += 1
-                    if not notice_printed:
-                        if FLAGS.verbose:
-                            sys.stderr.write('Packet modified\n')
-                            notice_printed = True
-                    if FLAGS.verbose:
-                        sys.stderr.write(str(eval('orig_packet.' + member)) + ' -> ' + str(eval('packet.' + member)) + '\n')
-                        if notice_printed:
-                            sys.stderr.write('\n')
+    def commit_packet(self, packet):
+        """Apply the command line expressions(s) and routine file (if
+        any) to the packet and, if output it being piped to somewhere
+        other than the terminal, dump the packet into the outgoing
+        pcap stream.
 
-            # pass all packets, modified or not, to the dumper
-            try:
-                modified_pack = packet.repack()
-                if not sys.stdout.isatty():
-                    out.dump(packet.hdr, modified_pack)
-            except ValueError as valerr:
-                sys.stderr.write('There was an error converting a packet to a binary string:\n')
-                sys.stderr.write(str(valerr) + '\n')
-                traceback.print_exc()
-                sys.exit(1)
+        """
+        self.apply_cmdline_exps(packet)
+        self.apply_routine_file(packet)
+
+        # print out changes to each packet if --verbose
+        if FLAGS.verbose:
+            diff_list = packet.diff(self.orig_packet)
+            if len(diff_list) > 0:
+                for (attr, my_val, other_val) in diff_list:
+                    sys.stderr.write(attr + ': ' + str(other_val) + ' -> ' + str(my_val) + '\n')
+                sys.stderr.write('\n')
+
+        if self.pcap is None:
+            sys.stderr.write('Attempted to dump packets without first reading them -- make sure to call packet_generator()')
+            sys.exit(1)
+        else:
+            if not sys.stdout.isatty():
+                self.out.dump(packet.hdr, packet.datapack)
 
 
     def apply_routine_file(self, packet):
         """Apply the user-supplied external routine file to a packet."""
         if self.routine_file is not None:
-            execfile(self.routine_file, {}, packet)
+            try:
+                execfile(self.routine_file, {}, packet)
+            except (ValueError, struct.error, NameError) as err:
+                raise ValueError, 'There was an error converting a packet to a binary string (' + err.message + ')'
 
 
     def apply_cmdline_exps(self, packet):
@@ -106,13 +140,7 @@ class Modifier(object):
                     exec(exp, {}, packet)
 
 
-
     # accessors and mutators
-    def get_num_modified(self):
-        """Get the number of packets modified so far by the Modifier object."""
-        return self.num_modified
-
-
     def set_routine_file(self, filestr):
         """Set the name of the user-supplied external routine file."""
         self.routine_file = filestr
@@ -146,19 +174,12 @@ if __name__ == "__main__":
     except gflags.FlagsError:
         sys.stderr.write('There was an error parsing the command line arguments. Please use --help.')
         sys.exit(1)
-    if FLAGS.routine is None and FLAGS.exp is None:
-        sys.stderr.write('You must supply either a modification file, one or more command line expressions, or both.\n')
+    if FLAGS.routine is None and FLAGS.exp is None and FLAGS.mod is None:
+        sys.stderr.write('You must supply at least one of the following: a modification file, one or more command line expressions, or a Python module.\n')
         sys.exit(1)
 
-    pcap = pcapy.open_offline('-')
-    if not sys.stdout.isatty():
-        out = pcap.dump_open('-')
-    else:
-        out = None
-    modifier = Modifier(FLAGS.routine, FLAGS.exp, pcap, out)
+    modifier = Modifier(FLAGS.mod, FLAGS.routine, FLAGS.exp)
     try:
         modifier.run()
     except (KeyboardInterrupt, SystemExit):
-        end_modifier(modifier.get_num_modified())
-
-    end_modifier(modifier.get_num_modified())
+        sys.exit(0)
