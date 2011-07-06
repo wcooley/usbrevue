@@ -7,6 +7,8 @@ from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
 
+from util import reverse_update_dict
+
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
     urb         = ('=Q',  0),
@@ -22,7 +24,7 @@ USBMON_PACKET_FORMAT = dict(
     status      = ('=i',  28),
     length      = ('=I',  32),
     len_cap     = ('=I',  36),
-    setup       = ('=8B', 40),
+    setup       = ('=8s', 40),
     error_count = ('=i',  40),
     numdesc     = ('=i',  44),
     interval    = ('=i',  48),
@@ -45,6 +47,8 @@ USBMON_TRANSFER_TYPE = dict(
     bulk        = 3,
 )
 
+# Add the reverse to the dict for convenience
+reverse_update_dict(USBMON_TRANSFER_TYPE)
 
 class PackedFields(object):
     """Base class for field decodings/unpacking.
@@ -221,8 +225,8 @@ class Packet(PackedFields):
     @property
     def setup(self):
         # setup is only meaningful if flag_setup == 's'
-        if self.flag_setup == 's':
-            return self.cache('setup', lambda a: list(self.unpacket(a)))
+        if self.flag_setup == '\x00':
+            return self.cache('setup', lambda a: SetupField(self.unpacket(a)[0]))
 
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
@@ -345,13 +349,55 @@ SETUP_FIELD_FORMAT = dict(
         wLength         =   ('=H',  6),
 )
 
+# bRequest values (with particular pmRequestType values)
+SETUP_REQUEST_TYPES = dict(
+        GET_STATUS          = 0x00,
+        CLEAR_FEATURE       = 0x01,
+        SET_FEATURE         = 0x03,
+        SET_ADDRESS         = 0x05,
+        GET_DESCRIPTOR      = 0x06,
+        SET_DESCRIPTOR      = 0x07,
+        GET_CONFIGURATION   = 0x08,
+        SET_CONFIGURATION   = 0x09,
+)
+reverse_update_dict(SETUP_REQUEST_TYPES)
+
+REQUEST_TYPE_DIRECTION = dict(
+        device_to_host      = 0b10000000,
+        host_to_device      = 0b00000000,
+)
+reverse_update_dict(REQUEST_TYPE_DIRECTION)
+
+REQUEST_TYPE_TYPE = dict(
+        standard    = 0b00000000,
+        class_      = 0b00100000,
+        vendor      = 0b01000000,
+        reserved    = 0b01100000,
+)
+reverse_update_dict(REQUEST_TYPE_TYPE)
+
 class SetupField(PackedFields):
 
     def __init__(self, data=None):
-        super(SetupField, self).__init__()
+        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data)
 
-        self.data = array('c', data)
+    @property
+    def bmRequestTypeDirection(self):
+        masked = self.bmRequestType & 0b10000000
+        return REQUEST_TYPE_DIRECTION[masked]
 
+    @bmRequestTypeDirection.setter
+    def bmRequestTypeDirection(self, val):
+        raise NotImplementedError
+
+    @property
+    def bmRequestTypeType(self):
+        masked = self.bmRequestType & 0b01100000
+        return REQUEST_TYPE_TYPE[masked]
+
+    @bmRequestTypeType.setter
+    def bmRequestTypeType(self):
+        raise NotImplementedError
 
 
 class WrongPacketXferType(Exception): pass
@@ -361,7 +407,8 @@ if __name__ == '__main__':
     # with 0x42, and write the modified packets to stdout
     import pcapy
     #pcap = pcapy.open_offline('-')
-    pcap = pcapy.open_offline('../test-data/usb-single-packet-8bytes-data.pcap')
+    #pcap = pcapy.open_offline('../test-data/usb-single-packet-8bytes-data.pcap')
+    pcap = pcapy.open_offline('../test-data/usb-single-packet-2.pcap')
     #out = pcap.dump_open('-')
 
     while 1:
