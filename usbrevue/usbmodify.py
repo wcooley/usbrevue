@@ -67,7 +67,7 @@ class Modifier(object):
             sys.exit(1)
 
 
-    def packet_generator(self, input_stream):
+    def packet_generator(self, input_stream='-'):
         """Open a pcap stream specified by input_stream and yield each
         packet in the stream. Also create the Dumper object and store
         it for later use, since we need the Reader object created here
