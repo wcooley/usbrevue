@@ -224,6 +224,10 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
 
 
+class ModByModule(unittest.TestCase):
+    """Change different packet attributes with a user-supplied module."""
+
+
 
 
 class ModDataByExp(unittest.TestCase):
