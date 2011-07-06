@@ -65,6 +65,10 @@ class Modifier(object):
             sys.stderr.write(err.message + '\n')
             sys.stderr.write('(Your module must implement a function called modify with two arguments, both functions: a packet generator and a packet committer)\n')
             sys.exit(1)
+        except NameError as err:
+            sys.stderr.write('There was an error while executing your module:\n')
+            sys.stderr.write(err.message + '\n')
+            sys.exit(1)
 
 
     def packet_generator(self, input_stream='-'):
