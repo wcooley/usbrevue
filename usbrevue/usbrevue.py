@@ -150,6 +150,9 @@ class PackedFields(object):
 
 
 class Packet(PackedFields):
+    """The Packet class adds higher-level semantics over the lower-level field
+    packing and unpacking.
+    """
 
     def __init__(self, hdr=None, pack=None):
         super(Packet, self).__init__()
