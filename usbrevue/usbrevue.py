@@ -334,12 +334,19 @@ SETUP_FIELD_FORMAT = dict(
 SETUP_REQUEST_TYPES = dict(
         GET_STATUS          = 0x00,
         CLEAR_FEATURE       = 0x01,
+        # Reserved          = 0x02,
         SET_FEATURE         = 0x03,
+        # Reserved          = 0x04,
         SET_ADDRESS         = 0x05,
         GET_DESCRIPTOR      = 0x06,
         SET_DESCRIPTOR      = 0x07,
         GET_CONFIGURATION   = 0x08,
         SET_CONFIGURATION   = 0x09,
+        GET_INTERFACE       = 0x0A,
+        SET_INTERFACE       = 0x0B,
+        SYNCH_FRAME         = 0x0C,
+        # Reserved          = 0x0D,
+        # ...               = 0xFF,
 )
 reverse_update_dict(SETUP_REQUEST_TYPES)
 
@@ -358,6 +365,16 @@ REQUEST_TYPE_TYPE = dict(
         reserved    = 0b01100000,
 )
 reverse_update_dict(REQUEST_TYPE_TYPE)
+
+REQUEST_TYPE_RECIPIENT = dict(
+                    #-> ___43210
+        device      = 0b00000000,
+        interface   = 0b00000001,
+        endpoint    = 0b00000010,
+        other       = 0b00000010,
+        # Reserved  = 0b000*****
+)
+reverse_update_dict(REQUEST_TYPE_RECIPIENT)
 
 class SetupField(PackedFields):
 
