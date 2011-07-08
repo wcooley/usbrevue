@@ -159,7 +159,7 @@ class TestPacket(unittest.TestCase,TestUtil):
         pass
 
     # Skipping tests is not supported until 2.7
-    if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
+    if PYTHON_2_7_PLUS:
         @unittest.skip('Exception not yet implemented')
         def test_error_count(self):
             self.assertRaisesWrongPacketXferType('error_count')
