@@ -341,12 +341,14 @@ SETUP_REQUEST_TYPES = dict(
 reverse_update_dict(SETUP_REQUEST_TYPES)
 
 REQUEST_TYPE_DIRECTION = dict(
+                            #-> 7_______
         device_to_host      = 0b10000000,
         host_to_device      = 0b00000000,
 )
 reverse_update_dict(REQUEST_TYPE_DIRECTION)
 
 REQUEST_TYPE_TYPE = dict(
+                    #-> _65_____
         standard    = 0b00000000,
         class_      = 0b00100000,
         vendor      = 0b01000000,
