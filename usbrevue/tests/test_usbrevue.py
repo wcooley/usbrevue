@@ -244,6 +244,7 @@ class TestSetupField(unittest.TestCase,TestUtil):
         pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
         self.packet = Packet(*pcap.next())
         self.setup = self.packet.setup
+        self.set_and_test = partial(self.setattr_and_test, self.packet.setup)
 
     def test_bmrequest_type(self):
         self.assertEqual(self.setup.bmRequestType, 0b10000000)
