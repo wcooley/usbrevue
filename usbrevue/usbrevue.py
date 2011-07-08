@@ -387,10 +387,12 @@ class SetupField(PackedFields):
     def __init__(self, data=None):
         PackedFields.__init__(self, SETUP_FIELD_FORMAT, data)
 
+    def _bmRequestType_mask(self, mask):
+        return self.bmRequestType & REQUEST_TYPE_MASK[mask]
+
     @property
     def bmRequestTypeDirection(self):
-        masked = self.bmRequestType & REQUEST_TYPE_MASK['direction']
-        return REQUEST_TYPE_DIRECTION[masked]
+        return REQUEST_TYPE_DIRECTION[self._bmRequestType_mask('direction')]
 
     @bmRequestTypeDirection.setter
     def bmRequestTypeDirection(self, val):
@@ -398,8 +400,7 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeType(self):
-        masked = self.bmRequestType & REQUEST_TYPE_MASK['type_']
-        return REQUEST_TYPE_TYPE[masked]
+        return REQUEST_TYPE_TYPE[self._bmRequestType_mask('type_')]
 
     @bmRequestTypeType.setter
     def bmRequestTypeType(self):
