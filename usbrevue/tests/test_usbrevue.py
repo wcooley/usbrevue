@@ -248,23 +248,23 @@ class TestSetupField(unittest.TestCase,TestUtil):
 
     def test_bmrequest_type(self):
         self.assertEqual(self.setup.bmRequestType, 0b10000000)
-        # FIXME: Write
-        #self.setup.bmRequestType = 0b00000000
-        #self.assertEqual(self.setup.bmRequestType, 0b00000000)
+        self.set_and_test('bmRequestType', 0b00000000)
+        self.set_and_test('bmRequestType', 0b11111111)
 
     def test_bmrequest_type_direction(self):
         self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
         # FIXME: Write
-        #self.setup.bmRequestTypeDirection = 'host_to_device'
-        #self.assertEqual(self.setup.bmRequestTypeDirection, 'host_to_device')
+        #self.set_and_test('bmRequestTypeDirection', 'host_to_device')
+        #self.set_and_test('bmRequestTypeDirection', 'device_to_host')
 
     def test_bmrequest_type_type(self):
         self.assertEqual(self.setup.bmRequestTypeType, 'standard')
         self.assertEqual(REQUEST_TYPE_TYPE[self.setup.bmRequestTypeType],
                          REQUEST_TYPE_TYPE['standard'])
         # FIXME: Write
-        #self.setup.bmRequestTypeType = 'class_'
-        #self.assertEqual(self.setup.bmRequestTypeType, 'class_')
+        #self.set_and_test('bmRequestTypeType', 'class_')
+        #self.set_and_test('bmRequestTypeType', 'vendor')
+        #self.set_and_test('bmRequestTypeType', 'reserved')
 
     def test_brequest(self):
         self.assertEqual(self.setup.bRequest,
