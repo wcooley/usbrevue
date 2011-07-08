@@ -253,18 +253,25 @@ class TestSetupField(unittest.TestCase,TestUtil):
 
     def test_bmrequest_type_direction(self):
         self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
-        # FIXME: Write
-        #self.set_and_test('bmRequestTypeDirection', 'host_to_device')
-        #self.set_and_test('bmRequestTypeDirection', 'device_to_host')
+
+    if PYTHON_2_7_PLUS:
+        @unittest.skip('Setter not yet implemented')
+        def test_bmrequest_type_direction_write(self):
+            self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
+            self.set_and_test('bmRequestTypeDirection', 'host_to_device')
+            self.set_and_test('bmRequestTypeDirection', 'device_to_host')
 
     def test_bmrequest_type_type(self):
         self.assertEqual(self.setup.bmRequestTypeType, 'standard')
         self.assertEqual(REQUEST_TYPE_TYPE[self.setup.bmRequestTypeType],
                          REQUEST_TYPE_TYPE['standard'])
-        # FIXME: Write
-        #self.set_and_test('bmRequestTypeType', 'class_')
-        #self.set_and_test('bmRequestTypeType', 'vendor')
-        #self.set_and_test('bmRequestTypeType', 'reserved')
+    if PYTHON_2_7_PLUS:
+        @unittest.skip('Setter not yet implemented')
+        def test_bmrequest_type_type_write(self):
+            self.set_and_test('bmRequestTypeType', 'class_')
+            self.set_and_test('bmRequestTypeType', 'vendor')
+            self.set_and_test('bmRequestTypeType', 'reserved')
+            self.set_and_test('bmRequestTypeType', 'standard')
 
     def test_brequest(self):
         self.assertEqual(self.setup.bRequest,
