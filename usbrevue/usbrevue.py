@@ -376,6 +376,12 @@ REQUEST_TYPE_RECIPIENT = dict(
 )
 reverse_update_dict(REQUEST_TYPE_RECIPIENT)
 
+REQUEST_TYPE_MASK = dict(
+        direction   = 0b10000000,
+        type_       = 0b01100000,
+        recipient   = 0b00011111,
+)
+
 class SetupField(PackedFields):
 
     def __init__(self, data=None):
@@ -383,7 +389,7 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeDirection(self):
-        masked = self.bmRequestType & 0b10000000
+        masked = self.bmRequestType & REQUEST_TYPE_MASK['direction']
         return REQUEST_TYPE_DIRECTION[masked]
 
     @bmRequestTypeDirection.setter
@@ -392,7 +398,7 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeType(self):
-        masked = self.bmRequestType & 0b01100000
+        masked = self.bmRequestType & REQUEST_TYPE_MASK['type_']
         return REQUEST_TYPE_TYPE[masked]
 
     @bmRequestTypeType.setter
