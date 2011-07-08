@@ -209,7 +209,10 @@ class Packet(PackedFields):
 
     @property
     def setup(self):
-        # setup is only meaningful if flag_setup == 's'
+        # setup is only meaningful if flag_setup == '\x00'
+        # NB: The usbmon doc says flag_setup should be 's' but that seems to be
+        # only for the text interface, because is seems to be 0x00 and
+        # Wireshark agrees.
         if self.flag_setup == '\x00':
             return self.cache('setup', lambda a: SetupField(self.unpacket(a)[0]))
 
