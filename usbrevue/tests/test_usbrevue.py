@@ -273,6 +273,16 @@ class TestSetupField(unittest.TestCase,TestUtil):
             self.set_and_test('bmRequestTypeType', 'reserved')
             self.set_and_test('bmRequestTypeType', 'standard')
 
+    def test_bmrequest_type_recipient(self):
+        self.assertEqual(self.setup.bmRequestTypeRecipient, 'device')
+
+    if PYTHON_2_7_PLUS:
+        @unittest.skip('Setting not yet implemented')
+        def test_bmrequest_type_recipient_write(self):
+            self.set_and_test('bmRequestTypeRecipient', 'interface')
+            self.set_and_test('bmRequestTypeRecipient', 'endpoint')
+            self.set_and_test('bmRequestTypeRecipient', 'other')
+
     def test_brequest(self):
         self.assertEqual(self.setup.bRequest,
                         SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])

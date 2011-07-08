@@ -371,7 +371,7 @@ REQUEST_TYPE_RECIPIENT = dict(
         device      = 0b00000000,
         interface   = 0b00000001,
         endpoint    = 0b00000010,
-        other       = 0b00000010,
+        other       = 0b00000011,
         # Reserved  = 0b000*****
 )
 reverse_update_dict(REQUEST_TYPE_RECIPIENT)
@@ -403,9 +403,16 @@ class SetupField(PackedFields):
         return REQUEST_TYPE_TYPE[self._bmRequestType_mask('type_')]
 
     @bmRequestTypeType.setter
-    def bmRequestTypeType(self):
+    def bmRequestTypeType(self, val):
         raise NotImplementedError
 
+    @property
+    def bmRequestTypeRecipient(self):
+        return REQUEST_TYPE_RECIPIENT[self._bmRequestType_mask('recipient')]
+
+    @bmRequestTypeRecipient.setter
+    def bmRequestTypeRecipient(self, val):
+        raise NotImplementedError
 
 class WrongPacketXferType(Exception): pass
 
