@@ -5,7 +5,7 @@ import pcapy
 from usbrevue import Packet
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
-                         QPersistentModelIndex, QTimer
+                         QPersistentModelIndex, QTimer, QString
 from PyQt4.QtGui import *
 
 
@@ -71,7 +71,9 @@ class PacketModel(QAbstractTableModel):
         pack = self.packets[row]
 
         if role == Qt.DisplayRole:
-            if col == TIMESTAMP_COL:
+            if isinstance(pack, str):
+                return pack
+            elif col == TIMESTAMP_COL:
                 return "%d.%06d" % (pack.ts_sec - self.first_ts, pack.ts_usec)
             elif col == URB_COL:
                 return "%016X" % pack.urb
@@ -81,10 +83,15 @@ class PacketModel(QAbstractTableModel):
                                             "oi"[pack.epnum >> 7])
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
-        elif role == Qt.FontRole and col in [URB_COL, ADDRESS_COL, DATA_COL]:
-            return QFont("monospace")
+        elif role == Qt.FontRole:
+            if col in [URB_COL, ADDRESS_COL, DATA_COL]:
+                return QFont("monospace")
+            if isinstance(pack, str):
+                font = QFont()
+                font.setBold(True)
+                return font
         elif role == Qt.UserRole: # packet object
-            return QVariant(self.packets[row])
+            return QVariant(pack)
  
         return QVariant()
 
@@ -96,7 +103,8 @@ class PacketModel(QAbstractTableModel):
             data = map(lambda b: int(b, 16), datastr.split())
         except Exception:
             return False
-        self.packets[index.row()].data = data
+        for i in xrange(len(data)):
+            self.packets[index.row()].data[i] = data[i]
         self.dataChanged.emit(index, index)
         return True
         
@@ -131,6 +139,12 @@ class PacketModel(QAbstractTableModel):
         self.packets.append(pack)
         self.endInsertRows()
 
+    def new_annotation(self, note):
+        l = len(self.packets)
+        self.beginInsertRows(QModelIndex(), l, l)
+        self.packets.append("*** " + str(note))
+        self.endInsertRows()
+
 
 
 
@@ -147,6 +161,8 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
     def filterAcceptsRow(self, source_row, source_parent):
         index = self.sourceModel().index(source_row, 0, source_parent)
         packet = self.sourceModel().data(index, Qt.UserRole).toPyObject()
+        if isinstance(packet, QString):
+            return True
         try:
             return bool(eval(self.expr, {}, packet))
         except Exception:
@@ -242,9 +258,16 @@ class PacketView(QTreeView):
     def remove_all(self):
         self.model().clear()
 
-    def new_row(self, parent, start, end):
+    def rowsInserted(self, parent, start, end):
+        QTreeView.rowsInserted(self, parent, start, end)
         if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
             self.autoscroll_timer.start(50)
+
+        for row in xrange(start, end+1):
+            idx = self.model().index(row, 0, parent)
+            pack = self.model().data(idx, Qt.UserRole).toPyObject();
+            if isinstance(pack, QString):
+                self.setFirstColumnSpanned(row, parent, True)
 
     def dump_selected(self):
         selected = self.selectionModel().selectedRows()
@@ -320,8 +343,8 @@ class USBView(QApplication):
         self.packetview.setModel(self.proxy)
         self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.packetview.setUniformRowHeights(True)
+        self.packetview.setAllColumnsShowFocus(True)
         self.packetview.dump_packet.connect(self.dump_packet)
-        self.proxy.rowsInserted.connect(self.packetview.new_row)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
         self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
 
@@ -329,9 +352,15 @@ class USBView(QApplication):
         self.filterpane.new_view_filter.connect(self.proxy.set_filter)
         self.filterpane.new_cap_filter.connect(self.new_cap_filter)
 
+        self.annotator = QLineEdit()
+        self.annotator.returnPressed.connect(self.new_annotation)
+        if hasattr(self.annotator, "setPlaceholderText"):
+            self.annotator.setPlaceholderText("Annotation")
+
         self.vb = QVBoxLayout()
         self.vb.addWidget(self.filterpane)
         self.vb.addWidget(self.packetview)
+        self.vb.addWidget(self.annotator)
         self.w.setLayout(self.vb)
         self.w.show()
 
@@ -343,6 +372,11 @@ class USBView(QApplication):
         self.dumper = None
         self.passthru = True
         self.filterexpr = None
+
+    def new_annotation(self):
+        note = self.annotator.text()
+        self.annotator.clear()
+        self.packetmodel.new_annotation(note)
 	
     def dump_opened(self, dumper):
         self.dumper = dumper
@@ -374,13 +408,14 @@ class USBView(QApplication):
     def dump_packet(self, pack):
         if self.dumper is not None:
             try:
+                #TODO dump annotations?
                 self.dumper.dump(pack.hdr, pack.repack())
                 sys.stdout.flush()
             except Exception:
                 self.dumper = None
 
 
-
-app = USBView(sys.argv)
-sys.exit(app.exec_())
+if __name__ == '__main__':
+    app = USBView(sys.argv)
+    sys.exit(app.exec_())
 
