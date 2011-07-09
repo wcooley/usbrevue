@@ -287,24 +287,6 @@ class TestSetupField(unittest.TestCase,TestUtil):
         self.set_and_test('bmRequestTypeRecipient', 'endpoint')
         self.set_and_test('bmRequestTypeRecipient', 'other')
 
-    def test_packet_write_bmrequest_type_direction(self):
-        """Set bmRequestType direction bitfield and test copy"""
-        self.set_and_test('bmRequestTypeDirection', 'host_to_device')
-
-        packet2 = self.packet.copy()
-        self.assertEqual(packet2.setup.bmRequestTypeDirection, 'host_to_device')
-
-    def test_packet_write_bmrequest_type_type(self):
-        """Set bmRequestType type bitfield and test copy"""
-        self.set_and_test('bmRequestTypeType', 'vendor')
-        packet2 = self.packet.copy()
-        self.assertEqual(packet2.setup.bmRequestTypeType, 'vendor')
-
-    def test_packet_write_bmrequest_type_recipient(self):
-        """Set bmRequestType recipient bitfield and test copy"""
-        self.set_and_test('bmRequestTypeRecipient', 'endpoint')
-        packet2 = self.packet.copy()
-        self.assertEqual(packet2.setup.bmRequestTypeRecipient, 'endpoint')
 
 
     def test_brequest(self):
@@ -316,6 +298,38 @@ class TestSetupField(unittest.TestCase,TestUtil):
     #def test_wValue(self):
         #self.assertEqual(self.setup.wValue, 'DEVICE')
 
+class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
+    def setUp(self):
+        pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
+        self.packet = Packet(*pcap.next())
+
+    def test_packet_write_bmrequest_type_direction(self):
+        #"""Set bmRequestType direction bitfield and test copy"""
+        d = 'host_to_device'
+        self.packet.setup.bmRequestTypeDirection = d
+        self.assertEqual(self.packet.setup.bmRequestTypeDirection, d)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeDirection, d)
+
+    def test_packet_write_bmrequest_type_type(self):
+        #"""Set bmRequestType type bitfield and test copy"""
+        t = 'vendor'
+        self.packet.setup.bmRequestTypeType = t
+        self.assertEqual(self.packet.setup.bmRequestTypeType, t)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeType, t)
+
+    def test_packet_write_bmrequest_type_recipient(self):
+        #"""Set bmRequestType recipient bitfield and test copy"""
+        r = 'endpoint'
+        self.packet.setup.bmRequestTypeRecipient = r
+        self.assertEqual(self.packet.setup.bmRequestTypeRecipient, r)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeRecipient, r)
+
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -323,4 +337,5 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
+    suite.addTest(loader.loadTestsFromTestCase(TestSetupFieldPropagation))
     unittest.TextTestRunner(verbosity=1).run(suite)
