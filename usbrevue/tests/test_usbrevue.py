@@ -287,6 +287,26 @@ class TestSetupField(unittest.TestCase,TestUtil):
         self.set_and_test('bmRequestTypeRecipient', 'endpoint')
         self.set_and_test('bmRequestTypeRecipient', 'other')
 
+    def test_packet_write_bmrequest_type_direction(self):
+        """Set bmRequestType direction bitfield and test copy"""
+        self.set_and_test('bmRequestTypeDirection', 'host_to_device')
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeDirection, 'host_to_device')
+
+    def test_packet_write_bmrequest_type_type(self):
+        """Set bmRequestType type bitfield and test copy"""
+        self.set_and_test('bmRequestTypeType', 'vendor')
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeType, 'vendor')
+
+    def test_packet_write_bmrequest_type_recipient(self):
+        """Set bmRequestType recipient bitfield and test copy"""
+        self.set_and_test('bmRequestTypeRecipient', 'endpoint')
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeRecipient, 'endpoint')
+
+
     def test_brequest(self):
         self.assertEqual(self.setup.bRequest,
                         SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
