@@ -7,7 +7,7 @@ from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
 
-from util import reverse_update_dict
+from util import reverse_update_dict, apply_mask
 
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
@@ -396,7 +396,9 @@ class SetupField(PackedFields):
 
     @bmRequestTypeDirection.setter
     def bmRequestTypeDirection(self, val):
-        raise NotImplementedError
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['direction'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_DIRECTION[val])
 
     @property
     def bmRequestTypeType(self):
@@ -404,7 +406,9 @@ class SetupField(PackedFields):
 
     @bmRequestTypeType.setter
     def bmRequestTypeType(self, val):
-        raise NotImplementedError
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['type_'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_TYPE[val])
 
     @property
     def bmRequestTypeRecipient(self):
@@ -412,7 +416,9 @@ class SetupField(PackedFields):
 
     @bmRequestTypeRecipient.setter
     def bmRequestTypeRecipient(self, val):
-        raise NotImplementedError
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['recipient'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_RECIPIENT[val])
 
 class WrongPacketXferType(Exception): pass
 
