@@ -13,6 +13,7 @@ import pcapy
 
 from tutil import *
 from usbrevue import *
+from util import apply_mask
 
 class TestPackedFields(unittest.TestCase,TestUtil):
 
@@ -254,6 +255,14 @@ class TestSetupField(unittest.TestCase,TestUtil):
     def test_bmrequest_type_direction(self):
         self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
 
+    def test_bmrequest_type_direction_host_to_device(self):
+        self.setup.bmRequestType = apply_mask(
+                                    REQUEST_TYPE_MASK['direction'],
+                                    self.setup.bmRequestType,
+                                    REQUEST_TYPE_DIRECTION['host_to_device'])
+        self.assertEqual(self.setup.bmRequestTypeDirection, 'host_to_device')
+
+
     if PYTHON_2_7_PLUS:
         @unittest.skip('Setter not yet implemented')
         def test_bmrequest_type_direction_write(self):
@@ -299,4 +308,4 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.TextTestRunner(verbosity=1).run(suite)
