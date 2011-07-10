@@ -28,7 +28,7 @@ class TestPackedFields(unittest.TestCase,TestUtil):
                     two     = ( '<c', 2),
                     four    = ( '<?', 4),
                     five    = ( '<c', 5),
-                    six     = ( '<c', 6),
+                    six     = ( '<2s', 6),  # 6-7
                     seven   = ( '<c', 7),
                     eight   = ( '<h', 8),   # 8-9
                     nine    = ( '<B', 9),
@@ -62,6 +62,21 @@ class TestPackedFields(unittest.TestCase,TestUtil):
         self.assertEqual(self.fieldpack.repack()[5], 'A')
         self.set_and_test('five', 'a')
         self.assertEqual(self.fieldpack.repack()[5], 'a')
+
+    def test_parent_update(self):
+        fmt_table = dict(   six1 = ('<c', 0),
+                            six2 = ('<c', 1))
+
+        def _update_six(fp, dp):
+            fp.repacket('six', [dp.tostring()])
+
+        fp2 = PackedFields(fmt_table, self.fieldpack.six,
+                    partial(_update_six, self.fieldpack))
+        fp2.six2 = 'D'
+
+        self.assertEqual(fp2.six2, 'D')
+        self.assertEqual(fp2.six2, self.fieldpack.seven)
+        self.assertEqual(self.fieldpack.seven, 'D')
 
 
 class TestPacket(unittest.TestCase,TestUtil):
@@ -302,6 +317,11 @@ class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
     def setUp(self):
         pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
         self.packet = Packet(*pcap.next())
+
+    def test_packet_manual_unpack(self):
+        packet_setup = unpack_from('=8s', self.packet.datapack, 40)[0]
+        datapack = self.packet.setup.datapack.tostring()
+        self.assertEqual(packet_setup, datapack)
 
     def test_packet_write_bmrequest_type_direction(self):
         #"""Set bmRequestType direction bitfield and test copy"""
