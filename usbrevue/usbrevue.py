@@ -3,9 +3,13 @@ import sys
 
 from array import array
 from collections import MutableSequence, Sequence
+from functools import partial
+from logging import debug
 from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
+import logging
+#logging.basicConfig(level=logging.DEBUG)
 
 from util import reverse_update_dict, apply_mask
 
@@ -57,13 +61,14 @@ class PackedFields(object):
     # self.format_table when it is being initialized.
     format_table = dict()
 
-    def __init__(self, format_table=None, datapack=None):
+    def __init__(self, format_table=None, datapack=None, update_parent=None):
         self._cache = dict()
 
         if format_table != None:
             self.format_table = format_table
 
         self.datapack = datapack
+        self.update_parent = update_parent
 
     def cache(self, attr, lookup_func):
         if not self._cache.has_key(attr):
@@ -91,6 +96,7 @@ class PackedFields(object):
         """Repack attr into self.datapack using (struct) format string and
         offset from self.format_table. fmtx can be used to provide additional
         data for string-formatting that may be in the format string."""
+        debug('repacket: attr: %s, vals: %s, fmtx: %s', attr, pformat(vals), fmtx)
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return pack_into(fmt, self.datapack, offset, *vals)
@@ -107,6 +113,8 @@ class PackedFields(object):
         if attr in self.format_table:
             self._cache[attr] = val
             self.repacket(attr, [val])
+            if self.update_parent != None:
+                self.update_parent(self.datapack)
         else:
             # This makes properties and non-format_table attributes work
             object.__setattr__(self, attr, val)
@@ -213,8 +221,15 @@ class Packet(PackedFields):
         # NB: The usbmon doc says flag_setup should be 's' but that seems to be
         # only for the text interface, because is seems to be 0x00 and
         # Wireshark agrees.
+
+        def _update_setup(self, datapack):
+            self.repacket('setup', [datapack.tostring()])
+
         if self.flag_setup == '\x00':
-            return self.cache('setup', lambda a: SetupField(self.unpacket(a)[0]))
+            return self.cache('setup',
+                    lambda a:
+                        SetupField(self.unpacket(a)[0],
+                            partial(_update_setup, self)))
 
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
@@ -384,8 +399,8 @@ REQUEST_TYPE_MASK = dict(
 
 class SetupField(PackedFields):
 
-    def __init__(self, data=None):
-        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data)
+    def __init__(self, data=None, update_parent=None):
+        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data, update_parent)
 
     def _bmRequestType_mask(self, mask):
         return self.bmRequestType & REQUEST_TYPE_MASK[mask]
