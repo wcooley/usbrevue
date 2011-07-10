@@ -2,7 +2,7 @@
 
 import sys
 import pcapy
-from usbrevue import Packet
+from usbrevue import Packet, USBMON_TRANSFER_TYPE
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
                          QPersistentModelIndex, QTimer, QString
@@ -41,10 +41,9 @@ class PcapThread(QThread):
 
 # column indexes for packet model data
 TIMESTAMP_COL = 0
-URB_COL = 1
-ADDRESS_COL = 2
+ADDRESS_COL = 1
+SETUP_COL = 2
 DATA_COL = 3
-NUM_COLS = 4
 
 
 class PacketModel(QAbstractTableModel):
@@ -53,8 +52,8 @@ class PacketModel(QAbstractTableModel):
         QAbstractTableModel.__init__(self, parent)
         self.packets = []
         self.headers = {TIMESTAMP_COL: "Timestamp",
-                        URB_COL: "URB id",
                         ADDRESS_COL: "Address",
+                        SETUP_COL: "Setup",
                         DATA_COL: "Data"}
         # timestamp of the first received packet
         self.first_ts = 0
@@ -63,7 +62,7 @@ class PacketModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self.packets)
 
     def columnCount(self, parent = QModelIndex()):
-        return 0 if parent.isValid() else NUM_COLS
+        return 0 if parent.isValid() else len(self.headers)
 
     def data(self, index, role = Qt.DisplayRole):
         row = index.row()
@@ -75,8 +74,6 @@ class PacketModel(QAbstractTableModel):
                 return pack
             elif col == TIMESTAMP_COL:
                 return "%d.%06d" % (pack.ts_sec - self.first_ts, pack.ts_usec)
-            elif col == URB_COL:
-                return "%016X" % pack.urb
             elif col == ADDRESS_COL:
                 return "%s %d:%d:%x (%s%s)" % (pack.event_type, pack.busnum,
                                                pack.devnum, pack.epnum,
@@ -84,8 +81,10 @@ class PacketModel(QAbstractTableModel):
                                                "oi"[pack.epnum >> 7])
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
+            elif col == SETUP_COL and pack.flag_setup == '\0':
+                return '%02X %02X %02X%02X %02X%02X %02X%02X' % tuple(pack.setup)
         elif role == Qt.FontRole:
-            if col in [URB_COL, ADDRESS_COL, DATA_COL]:
+            if col in [SETUP_COL, ADDRESS_COL, DATA_COL]:
                 return QFont("monospace")
             if isinstance(pack, str):
                 font = QFont()
@@ -174,7 +173,7 @@ class PacketFilterProxyModel(QSortFilterProxyModel):
         if isinstance(packet, QString):
             return True
         try:
-            return bool(eval(self.expr, {}, packet))
+            return bool(eval(self.expr, USBMON_TRANSFER_TYPE, packet))
         except Exception:
             return False
 
@@ -420,7 +419,7 @@ class USBView(QApplication):
     def new_packet(self, packet):
         if self.filterexpr:
             try:
-                if not eval(self.filterexpr, {}, packet):
+                if not eval(self.filterexpr, USBMON_TRANSFER_TYPE, packet):
                     return
             except Exception:
                 return

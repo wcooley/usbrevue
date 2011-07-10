@@ -206,7 +206,7 @@ class Packet(PackedFields):
     @property
     def setup(self):
         # setup is only meaningful if flag_setup == 's'
-        if self.flag_setup == 's':
+        if self.flag_setup == '\0':
             return self.cache('setup', lambda a: list(self.unpacket(a)))
 
     # error_count and numdesc are only meaningful for isochronous transfers
