@@ -78,9 +78,10 @@ class PacketModel(QAbstractTableModel):
             elif col == URB_COL:
                 return "%016X" % pack.urb
             elif col == ADDRESS_COL:
-                return "%d:%d:%x (%s%s)" % (pack.busnum, pack.devnum, pack.epnum,
-                                            "ZICB"[pack.xfer_type],
-                                            "oi"[pack.epnum >> 7])
+                return "%s %d:%d:%x (%s%s)" % (pack.event_type, pack.busnum,
+                                               pack.devnum, pack.epnum,
+                                               "ZICB"[pack.xfer_type],
+                                               "oi"[pack.epnum >> 7])
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
         elif role == Qt.FontRole:
@@ -90,6 +91,15 @@ class PacketModel(QAbstractTableModel):
                 font = QFont()
                 font.setBold(True)
                 return font
+        elif role == Qt.ToolTipRole:
+            if col == ADDRESS_COL:
+                return '%s bus %d, device %d, endpoint 0x%x (%s, %s) ' % (
+                        {'S': 'Submission to',
+                         'C': 'Callback from',
+                         'E': 'Error on'}[pack.event_type],
+                        pack.busnum, pack.devnum, pack.epnum,
+                        ['Isochronous', 'Interrupt', 'Control', 'Bulk'][pack.xfer_type],
+                        ['outgoing', 'incoming'][pack.epnum >> 7])
         elif role == Qt.UserRole: # packet object
             return QVariant(pack)
  
@@ -292,6 +302,23 @@ class FilterWidget(QWidget):
         self.view_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
         self.cap_filter_edit = QLineEdit()
         self.cap_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+
+        filter_tip = """Available fields include:
+event_type:\t'C', 'S', or 'E' for Callback, Submission, or Error
+xfer_type:\tThe transfer type - control, isochronous, bulk, or interrupt
+epnum:\tThe endpoint number
+devnum:\tThe device number
+busnum:\tThe bus number
+data:\tA list of transmitted bytes of data"""
+
+        self.cap_filter_edit.setToolTip(
+                "Filter captured packets with a python expression\n\n" +
+                filter_tip)
+        self.view_filter_edit.setToolTip(
+                "Filter visible packets with a python expression\n\n" +
+                filter_tip)
+        self.cap_filter_clear.setToolTip("Clear capture filter")
+        self.view_filter_clear.setToolTip("Clear display filter")
 
         # Temporary workaround for Ubuntu 10.10 -- placeholderText was
         # introduced in Qt 4.7, but PyQt4 4.7.4 has no bindings for it.
