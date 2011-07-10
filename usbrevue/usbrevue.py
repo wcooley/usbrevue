@@ -15,27 +15,27 @@ from util import reverse_update_dict, apply_mask
 
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
-    urb         = ('=Q',  0),
-    event_type  = ('=c',  8),
-    xfer_type   = ('=B',  9),
-    epnum       = ('=B',  10),
-    devnum      = ('=B',  11),
-    busnum      = ('=H',  12),
-    flag_setup  = ('=c',  14),
-    flag_data   = ('=c',  15),
-    ts_sec      = ('=q',  16),
-    ts_usec     = ('=i',  24),
-    status      = ('=i',  28),
-    length      = ('=I',  32),
-    len_cap     = ('=I',  36),
-    setup       = ('=8s', 40),
-    error_count = ('=i',  40),
-    numdesc     = ('=i',  44),
-    interval    = ('=i',  48),
-    start_frame = ('=i',  52),
-    xfer_flags  = ('=I',  56),
-    ndesc       = ('=I',  60),
-    data        = ('=%dB', 64),
+    urb         = ('<Q',  0),
+    event_type  = ('<c',  8),
+    xfer_type   = ('<B',  9),
+    epnum       = ('<B',  10),
+    devnum      = ('<B',  11),
+    busnum      = ('<H',  12),
+    flag_setup  = ('<c',  14),
+    flag_data   = ('<c',  15),
+    ts_sec      = ('<q',  16),
+    ts_usec     = ('<i',  24),
+    status      = ('<i',  28),
+    length      = ('<I',  32),
+    len_cap     = ('<I',  36),
+    setup       = ('<8s', 40),
+    error_count = ('<i',  40),
+    numdesc     = ('<i',  44),
+    interval    = ('<i',  48),
+    start_frame = ('<i',  52),
+    xfer_flags  = ('<I',  56),
+    ndesc       = ('<I',  60),
+    data        = ('<%dB', 64),
 )
 
 # Note that the packet transfer type has different numeric identifiers then the
@@ -338,11 +338,11 @@ class Packet(PackedFields):
 
 
 SETUP_FIELD_FORMAT = dict(
-        bmRequestType   =   ('=B',  0),
-        bRequest        =   ('=B',  1),
-        wValue          =   ('=H',  2),
-        wIndex          =   ('=H',  4),
-        wLength         =   ('=H',  6),
+        bmRequestType   =   ('<B',  0),
+        bRequest        =   ('<B',  1),
+        wValue          =   ('<H',  2),
+        wIndex          =   ('<H',  4),
+        wLength         =   ('<H',  6),
 )
 
 # bRequest values (with particular pmRequestType values)
