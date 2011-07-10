@@ -310,8 +310,14 @@ class TestSetupField(unittest.TestCase,TestUtil):
         self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
                         'GET_DESCRIPTOR')
 
-    #def test_wValue(self):
-        #self.assertEqual(self.setup.wValue, 'DEVICE')
+    def test_wValue(self):
+        self.assertEqual(self.setup.wValue, 0b100000000)
+
+    def test_wIndex(self):
+        self.assertEqual(self.setup.wIndex, 0x0)
+
+    def test_wLength(self):
+        self.assertEqual(self.setup.wLength, 0x28)
 
 class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
     def setUp(self):
