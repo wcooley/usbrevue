@@ -56,7 +56,7 @@ class PacketModel(QAbstractTableModel):
                         SETUP_COL: "Setup",
                         DATA_COL: "Data"}
         # timestamp of the first received packet
-        self.first_ts = 0
+        self.first_ts = 0.0
 
     def rowCount(self, parent = QModelIndex()):
         return 0 if parent.isValid() else len(self.packets)
@@ -73,7 +73,7 @@ class PacketModel(QAbstractTableModel):
             if isinstance(pack, str):
                 return pack
             elif col == TIMESTAMP_COL:
-                return "%d.%06d" % (pack.ts_sec - self.first_ts, pack.ts_usec)
+                return "%f" % (pack.ts_sec + pack.ts_usec/1e6 - self.first_ts)
             elif col == ADDRESS_COL:
                 return "%s %d:%d:%x (%s%s)" % (pack.event_type, pack.busnum,
                                                pack.devnum, pack.epnum,
@@ -138,12 +138,12 @@ class PacketModel(QAbstractTableModel):
     def clear(self):
         self.beginResetModel()
         self.packets = []
-        self.first_ts = 0
+        self.first_ts = 0.0
         self.endResetModel()
 
     def new_packet(self, pack):
         l = len(self.packets)
-        self.first_ts = self.first_ts or pack.ts_sec
+        self.first_ts = self.first_ts or pack.ts_sec + pack.ts_usec/1e6
         self.beginInsertRows(QModelIndex(), l, l)
         self.packets.append(pack)
         self.endInsertRows()
