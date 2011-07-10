@@ -19,6 +19,62 @@ python tree.  For example, on some linux systems, a good location would be:
 /usr/lib/python2.7.  pyusb allows imports of usb.core and usb.util. 
 
 
+
+======
+Viewer
+======
+
+The viewer allows the user to view, edit, annotate, and analyze a USB packet
+stream.
+
+1. USAGE
+
+To view a pcap file:
+
+        $ ./usbview.py < file.pcap
+
+To view a live stream, and dump to a file:
+
+        $ sudo tcpdump -i usbmon0u -w - -U | ./usbview.py > outfile.pcap
+
+2. FILTERING
+
+The viewer provides filtering of displayed and captured packets using user-
+provided Python expressions. All fields of the usbmon_packet struct are
+available (see section "THE USB PACKET" below).
+
+The capture filter instructs the viewer to ignore any incoming packets for
+which the filter expression returns False. The display filter expression is
+used to determine which packets are visible in the view. Use the capture
+filter to remove packets you will never be interested in; use the display
+filter to focus on the packets you are interested in right now.
+
+A typical capture filter might look like
+
+        devnum == 3 and xfer_type != isochronous
+
+This will ignore traffic to all devices but device 3, and will remove any
+isochronous packets from the captured stream.
+
+Examples of display filter expressions:
+
+    * Show traffic from endpoint 0x81 (mind the hex!)
+        epnum == 0x81
+
+    * Show setup packets
+        setup
+
+    * Show packets with a data payload
+        data
+
+    * Show errors
+        event_type == 'E'
+
+    * Show callbacks from interrupt endpoints
+        event_type == 'C' and xfer_type == interrupt
+
+
+
 ========
 Modifier
 ========
