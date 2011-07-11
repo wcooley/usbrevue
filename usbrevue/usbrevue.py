@@ -6,7 +6,7 @@ from collections import MutableSequence, Sequence
 from functools import partial
 from logging import debug
 from pprint import pprint, pformat
-from struct import unpack_from, pack_into
+from struct import unpack_from, pack_into, unpack
 import datetime
 import logging
 #logging.basicConfig(level=logging.DEBUG)
@@ -459,7 +459,7 @@ class SetupField(PackedFields):
 
     def data_to_str(self):
         return '%02X %02X %02X%02X %02X%02X %02X%02X' % \
-            tuple(array('B', p.setup.datapack.tostring()).tolist()) # yuck
+            unpack('<8B', p.setup.datapack.tostring()) # yuck
 
     def fields_to_str(self):
         s = 'bmRequestType: %s, %s, %s (%s)' % (self.bmRequestTypeType,
