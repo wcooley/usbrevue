@@ -13,6 +13,7 @@ import pcapy
 
 from tutil import *
 from usbrevue import *
+from util import apply_mask
 
 class TestPackedFields(unittest.TestCase,TestUtil):
 
@@ -27,7 +28,7 @@ class TestPackedFields(unittest.TestCase,TestUtil):
                     two     = ( '<c', 2),
                     four    = ( '<?', 4),
                     five    = ( '<c', 5),
-                    six     = ( '<c', 6),
+                    six     = ( '<2s', 6),  # 6-7
                     seven   = ( '<c', 7),
                     eight   = ( '<h', 8),   # 8-9
                     nine    = ( '<B', 9),
@@ -61,6 +62,21 @@ class TestPackedFields(unittest.TestCase,TestUtil):
         self.assertEqual(self.fieldpack.repack()[5], 'A')
         self.set_and_test('five', 'a')
         self.assertEqual(self.fieldpack.repack()[5], 'a')
+
+    def test_parent_update(self):
+        fmt_table = dict(   six1 = ('<c', 0),
+                            six2 = ('<c', 1))
+
+        def _update_six(fp, dp):
+            fp.repacket('six', [dp.tostring()])
+
+        fp2 = PackedFields(fmt_table, self.fieldpack.six,
+                    partial(_update_six, self.fieldpack))
+        fp2.six2 = 'D'
+
+        self.assertEqual(fp2.six2, 'D')
+        self.assertEqual(fp2.six2, self.fieldpack.seven)
+        self.assertEqual(self.fieldpack.seven, 'D')
 
 
 class TestPacket(unittest.TestCase,TestUtil):
@@ -159,7 +175,7 @@ class TestPacket(unittest.TestCase,TestUtil):
         pass
 
     # Skipping tests is not supported until 2.7
-    if sys.version_info[0] == 2 and sys.version_info[1] >= 7:
+    if PYTHON_2_7_PLUS:
         @unittest.skip('Exception not yet implemented')
         def test_error_count(self):
             self.assertRaisesWrongPacketXferType('error_count')
@@ -238,7 +254,107 @@ class TestPacketData(unittest.TestCase,TestUtil):
         packet2.data[0] = 0xbb
         self.assertNotEqual(packet2.data, self.packet.data)
 
+class TestSetupField(unittest.TestCase,TestUtil):
 
+    def setUp(self):
+        pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
+        self.packet = Packet(*pcap.next())
+        self.setup = self.packet.setup
+        self.set_and_test = partial(self.setattr_and_test, self.packet.setup)
+
+    def test_bmrequest_type(self):
+        self.assertEqual(self.setup.bmRequestType, 0b10000000)
+        self.set_and_test('bmRequestType', 0b00000000)
+        self.set_and_test('bmRequestType', 0b11111111)
+
+    def test_bmrequest_type_direction(self):
+        self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
+
+    def test_bmrequest_type_direction_host_to_device(self):
+        self.setup.bmRequestType = apply_mask(
+                                    REQUEST_TYPE_MASK['direction'],
+                                    self.setup.bmRequestType,
+                                    REQUEST_TYPE_DIRECTION['host_to_device'])
+        self.assertEqual(self.setup.bmRequestTypeDirection, 'host_to_device')
+
+
+    def test_bmrequest_type_direction_write(self):
+        self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
+        self.set_and_test('bmRequestTypeDirection', 'host_to_device')
+        self.set_and_test('bmRequestTypeDirection', 'device_to_host')
+
+    def test_bmrequest_type_type(self):
+        self.assertEqual(self.setup.bmRequestTypeType, 'standard')
+        self.assertEqual(REQUEST_TYPE_TYPE[self.setup.bmRequestTypeType],
+                         REQUEST_TYPE_TYPE['standard'])
+
+    def test_bmrequest_type_type_write(self):
+        self.set_and_test('bmRequestTypeType', 'class_')
+        self.set_and_test('bmRequestTypeType', 'vendor')
+        self.set_and_test('bmRequestTypeType', 'reserved')
+        self.set_and_test('bmRequestTypeType', 'standard')
+
+    def test_bmrequest_type_recipient(self):
+        self.assertEqual(self.setup.bmRequestTypeRecipient, 'device')
+
+    def test_bmrequest_type_recipient_write(self):
+        self.set_and_test('bmRequestTypeRecipient', 'interface')
+        self.set_and_test('bmRequestTypeRecipient', 'endpoint')
+        self.set_and_test('bmRequestTypeRecipient', 'other')
+
+
+
+    def test_brequest(self):
+        self.assertEqual(self.setup.bRequest,
+                        SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
+        self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
+                        'GET_DESCRIPTOR')
+
+    def test_wValue(self):
+        self.assertEqual(self.setup.wValue, 0b100000000)
+
+    def test_wIndex(self):
+        self.assertEqual(self.setup.wIndex, 0x0)
+
+    def test_wLength(self):
+        self.assertEqual(self.setup.wLength, 0x28)
+
+class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
+    def setUp(self):
+        pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
+        self.packet = Packet(*pcap.next())
+
+    def test_packet_manual_unpack(self):
+        packet_setup = unpack_from('=8s', self.packet.datapack, 40)[0]
+        datapack = self.packet.setup.datapack.tostring()
+        self.assertEqual(packet_setup, datapack)
+
+    def test_packet_write_bmrequest_type_direction(self):
+        #"""Set bmRequestType direction bitfield and test copy"""
+        d = 'host_to_device'
+        self.packet.setup.bmRequestTypeDirection = d
+        self.assertEqual(self.packet.setup.bmRequestTypeDirection, d)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeDirection, d)
+
+    def test_packet_write_bmrequest_type_type(self):
+        #"""Set bmRequestType type bitfield and test copy"""
+        t = 'vendor'
+        self.packet.setup.bmRequestTypeType = t
+        self.assertEqual(self.packet.setup.bmRequestTypeType, t)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeType, t)
+
+    def test_packet_write_bmrequest_type_recipient(self):
+        #"""Set bmRequestType recipient bitfield and test copy"""
+        r = 'endpoint'
+        self.packet.setup.bmRequestTypeRecipient = r
+        self.assertEqual(self.packet.setup.bmRequestTypeRecipient, r)
+
+        packet2 = self.packet.copy()
+        self.assertEqual(packet2.setup.bmRequestTypeRecipient, r)
 
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
@@ -246,4 +362,6 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
-    unittest.TextTestRunner(verbosity=2).run(suite)
+    suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
+    suite.addTest(loader.loadTestsFromTestCase(TestSetupFieldPropagation))
+    unittest.TextTestRunner(verbosity=1).run(suite)
