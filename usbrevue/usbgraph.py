@@ -60,77 +60,15 @@ class BytePlot(Qwt.QwtPlot):
 
 
 
-class ByteModel(QAbstractTableModel):
-    def __init__(self, parent=None):
-        QAbstractTableModel.__init__(self, parent)
-
-        self.bytes = []
-        self.headers = {}
-
-
-    def rowCount(self, parent = QModelIndex()):
-        return 0 if parent.isValid() else len(self.bytes)
-
-
-    def columnCount(self, parent = QModelIndex()):
-        return 0 if parent.isValid() else len(self.headers)
-
-
-    def data(self, index, role = Qt.Qt.DisplayRole):
-        row = index.row()
-        col = index.column()
-        bytes = self.bytes[row]
-
-        if role == Qt.Qt.DisplayRole:
-            if isinstance(bytes, str):
-                return bytes
-            else:
-                return bytes[col]
-        elif role == Qt.Qt.UserRole:
-            return QVariant(bytes)
-
-        return QVariant()
-
-
-    def headerData(self, section, orientation, role = Qt.Qt.DisplayRole):
-        if role == Qt.Qt.DisplayRole and orientation == Qt.Qt.Horizontal:
-            return self.headers[section]
-
-
-    def new_packet(self, packet):
-        l = len(self.bytes)
-        self.beginInsertRows(QModelIndex(), l, l)
-        self.bytes.append(packet.data)
-        self.endInsertRows()
-
-
-
-class ByteView(QTreeView):
-    def __init__(self, parent=None):
-        QTreeView.__init__(self, parent)
-
-    def rowsInserted(self, parent, start, end):
-        QTreeView.rowsInserted(self, parent, start, end)
-
-        for row in xrange(start, end+1):
-            idx = self.model().index(row, 0, parent)
-            bytes = self.model().data(idx, Qt.Qt.UserRole).toPyObject()
-
-
-
 class USBGraph(QApplication):
     def __init__(self, argv):
         QApplication.__init__(self, argv)
         self.w = QWidget()
         self.w.resize(800, 600)
 
-        self.bytemodel = ByteModel()
-        self.byteview = ByteView()
-        self.byteview.setModel(self.bytemodel)
         self.byteplot = BytePlot()
 
         self.hb = QHBoxLayout()
-        self.hb.addWidget(self.byteview)
         self.hb.addWidget(self.byteplot)
 
         self.w.setLayout(self.hb)
