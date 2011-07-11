@@ -10,8 +10,8 @@
 #define SAMPLE_RATE 16000
 
 /* exact powers of two tend to give xruns for some reason */
-#define BUFFER_SIZE 4000
-#define PERIOD_SIZE 1000
+#define BUFFER_SIZE 8000
+#define PERIOD_SIZE 2000
 
 
 static snd_pcm_t *capture_handle;
