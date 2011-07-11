@@ -457,6 +457,36 @@ class SetupField(PackedFields):
                                         self.bmRequestType,
                                         REQUEST_TYPE_RECIPIENT[val])
 
+    def data_to_str(self):
+        return '%02X %02X %02X%02X %02X%02X %02X%02X' % \
+            tuple(array('B', p.setup.datapack.tostring()).tolist()) # yuck
+
+    def fields_to_str(self):
+        s = 'bmRequestType: %s, %s, %s (%s)' % (self.bmRequestTypeType,
+                                            self.bmRequestTypeDirection,
+                                            self.bmRequestTypeRecipient,
+                                            bin(self.bmRequestType))
+        s += '; bRequest: %s (0x%X)' % (SETUP_REQUEST_TYPES[self.bRequest],
+                                        self.bRequest)
+        s += '; wValue: (0x%X)' % self.wValue
+        s += '; wIndex: (0x%X)' % self.wIndex
+        s += '; wLength: (0x%X)' % self.wLength
+        return s
+
+    def __str__(self):
+        #s = 'type: %s' % self.bmRequestTypeType
+        s = ''
+        s += self.fields_to_str()
+        if self.bmRequestTypeType == 'standard':
+            s += ', request: %s' % SETUP_REQUEST_TYPES[self.bRequest]
+            s += ', direction: %s' % self.bmRequestTypeDirection
+            s += ', recipient: %s' % self.bmRequestTypeRecipient
+        #else:
+        s += ', data: %s' % self.data_to_str()
+
+        return s
+
+
 class WrongPacketXferType(Exception): pass
 
 if __name__ == '__main__':
