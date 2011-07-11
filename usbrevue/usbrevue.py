@@ -459,7 +459,7 @@ class SetupField(PackedFields):
 
     def data_to_str(self):
         return '%02X %02X %02X%02X %02X%02X %02X%02X' % \
-            unpack('<8B', p.setup.datapack.tostring()) # yuck
+            unpack('<8B', self.datapack.tostring()) # yuck
 
     def fields_to_str(self):
         s = 'bmRequestType: %s, %s, %s (%s)' % (self.bmRequestTypeType,
