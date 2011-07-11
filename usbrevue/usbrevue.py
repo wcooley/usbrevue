@@ -3,35 +3,39 @@ import sys
 
 from array import array
 from collections import MutableSequence, Sequence
+from functools import partial
+from logging import debug
 from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 import datetime
+import logging
+#logging.basicConfig(level=logging.DEBUG)
 
-from util import reverse_update_dict
+from util import reverse_update_dict, apply_mask
 
 USBMON_PACKET_FORMAT = dict(
     # Attr        fmt     offset
-    urb         = ('=Q',  0),
-    event_type  = ('=c',  8),
-    xfer_type   = ('=B',  9),
-    epnum       = ('=B',  10),
-    devnum      = ('=B',  11),
-    busnum      = ('=H',  12),
-    flag_setup  = ('=c',  14),
-    flag_data   = ('=c',  15),
-    ts_sec      = ('=q',  16),
-    ts_usec     = ('=i',  24),
-    status      = ('=i',  28),
-    length      = ('=I',  32),
-    len_cap     = ('=I',  36),
-    setup       = ('=8s', 40),
-    error_count = ('=i',  40),
-    numdesc     = ('=i',  44),
-    interval    = ('=i',  48),
-    start_frame = ('=i',  52),
-    xfer_flags  = ('=I',  56),
-    ndesc       = ('=I',  60),
-    data        = ('=%dB', 64),
+    urb         = ('<Q',  0),
+    event_type  = ('<c',  8),
+    xfer_type   = ('<B',  9),
+    epnum       = ('<B',  10),
+    devnum      = ('<B',  11),
+    busnum      = ('<H',  12),
+    flag_setup  = ('<c',  14),
+    flag_data   = ('<c',  15),
+    ts_sec      = ('<q',  16),
+    ts_usec     = ('<i',  24),
+    status      = ('<i',  28),
+    length      = ('<I',  32),
+    len_cap     = ('<I',  36),
+    setup       = ('<8s', 40),
+    error_count = ('<i',  40),
+    numdesc     = ('<i',  44),
+    interval    = ('<i',  48),
+    start_frame = ('<i',  52),
+    xfer_flags  = ('<I',  56),
+    ndesc       = ('<I',  60),
+    data        = ('<%dB', 64),
 )
 
 # Note that the packet transfer type has different numeric identifiers then the
@@ -69,13 +73,14 @@ class PackedFields(object):
     # self.format_table when it is being initialized.
     format_table = dict()
 
-    def __init__(self, format_table=None, datapack=None):
+    def __init__(self, format_table=None, datapack=None, update_parent=None):
         self._cache = dict()
 
         if format_table != None:
             self.format_table = format_table
 
         self.datapack = datapack
+        self.update_parent = update_parent
 
     def cache(self, attr, lookup_func):
         if not self._cache.has_key(attr):
@@ -103,6 +108,7 @@ class PackedFields(object):
         """Repack attr into self.datapack using (struct) format string and
         offset from self.format_table. fmtx can be used to provide additional
         data for string-formatting that may be in the format string."""
+        debug('repacket: attr: %s, vals: %s, fmtx: %s', attr, pformat(vals), fmtx)
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return pack_into(fmt, self.datapack, offset, *vals)
@@ -119,6 +125,8 @@ class PackedFields(object):
         if attr in self.format_table:
             self._cache[attr] = val
             self.repacket(attr, [val])
+            if self.update_parent != None:
+                self.update_parent(self.datapack)
         else:
             # This makes properties and non-format_table attributes work
             object.__setattr__(self, attr, val)
@@ -224,9 +232,19 @@ class Packet(PackedFields):
 
     @property
     def setup(self):
-        # setup is only meaningful if flag_setup == 's'
+        # setup is only meaningful if flag_setup == '\x00'
+        # NB: The usbmon doc says flag_setup should be 's' but that seems to be
+        # only for the text interface, because is seems to be 0x00 and
+        # Wireshark agrees.
+
+        def _update_setup(self, datapack):
+            self.repacket('setup', [datapack.tostring()])
+
         if self.flag_setup == '\x00':
-            return self.cache('setup', lambda a: SetupField(self.unpacket(a)[0]))
+            return self.cache('setup',
+                    lambda a:
+                        SetupField(self.unpacket(a)[0],
+                            partial(_update_setup, self)))
 
     # error_count and numdesc are only meaningful for isochronous transfers
     # (xfer_type == 0)
@@ -342,33 +360,42 @@ class Packet(PackedFields):
 
 
 SETUP_FIELD_FORMAT = dict(
-        bmRequestType   =   ('=B',  0),
-        bRequest        =   ('=B',  1),
-        wValue          =   ('=H',  2),
-        wIndex          =   ('=H',  4),
-        wLength         =   ('=H',  6),
+        bmRequestType   =   ('<B',  0),
+        bRequest        =   ('<B',  1),
+        wValue          =   ('<H',  2),
+        wIndex          =   ('<H',  4),
+        wLength         =   ('<H',  6),
 )
 
 # bRequest values (with particular pmRequestType values)
 SETUP_REQUEST_TYPES = dict(
         GET_STATUS          = 0x00,
         CLEAR_FEATURE       = 0x01,
+        # Reserved          = 0x02,
         SET_FEATURE         = 0x03,
+        # Reserved          = 0x04,
         SET_ADDRESS         = 0x05,
         GET_DESCRIPTOR      = 0x06,
         SET_DESCRIPTOR      = 0x07,
         GET_CONFIGURATION   = 0x08,
         SET_CONFIGURATION   = 0x09,
+        GET_INTERFACE       = 0x0A,
+        SET_INTERFACE       = 0x0B,
+        SYNCH_FRAME         = 0x0C,
+        # Reserved          = 0x0D,
+        # ...               = 0xFF,
 )
 reverse_update_dict(SETUP_REQUEST_TYPES)
 
 REQUEST_TYPE_DIRECTION = dict(
+                            #-> 7_______
         device_to_host      = 0b10000000,
         host_to_device      = 0b00000000,
 )
 reverse_update_dict(REQUEST_TYPE_DIRECTION)
 
 REQUEST_TYPE_TYPE = dict(
+                    #-> _65_____
         standard    = 0b00000000,
         class_      = 0b00100000,
         vendor      = 0b01000000,
@@ -376,29 +403,59 @@ REQUEST_TYPE_TYPE = dict(
 )
 reverse_update_dict(REQUEST_TYPE_TYPE)
 
+REQUEST_TYPE_RECIPIENT = dict(
+                    #-> ___43210
+        device      = 0b00000000,
+        interface   = 0b00000001,
+        endpoint    = 0b00000010,
+        other       = 0b00000011,
+        # Reserved  = 0b000*****
+)
+reverse_update_dict(REQUEST_TYPE_RECIPIENT)
+
+REQUEST_TYPE_MASK = dict(
+        direction   = 0b10000000,
+        type_       = 0b01100000,
+        recipient   = 0b00011111,
+)
+
 class SetupField(PackedFields):
 
-    def __init__(self, data=None):
-        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data)
+    def __init__(self, data=None, update_parent=None):
+        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data, update_parent)
+
+    def _bmRequestType_mask(self, mask):
+        return self.bmRequestType & REQUEST_TYPE_MASK[mask]
 
     @property
     def bmRequestTypeDirection(self):
-        masked = self.bmRequestType & 0b10000000
-        return REQUEST_TYPE_DIRECTION[masked]
+        return REQUEST_TYPE_DIRECTION[self._bmRequestType_mask('direction')]
 
     @bmRequestTypeDirection.setter
     def bmRequestTypeDirection(self, val):
-        raise NotImplementedError
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['direction'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_DIRECTION[val])
 
     @property
     def bmRequestTypeType(self):
-        masked = self.bmRequestType & 0b01100000
-        return REQUEST_TYPE_TYPE[masked]
+        return REQUEST_TYPE_TYPE[self._bmRequestType_mask('type_')]
 
     @bmRequestTypeType.setter
-    def bmRequestTypeType(self):
-        raise NotImplementedError
+    def bmRequestTypeType(self, val):
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['type_'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_TYPE[val])
 
+    @property
+    def bmRequestTypeRecipient(self):
+        return REQUEST_TYPE_RECIPIENT[self._bmRequestType_mask('recipient')]
+
+    @bmRequestTypeRecipient.setter
+    def bmRequestTypeRecipient(self, val):
+        self.bmRequestType = apply_mask(REQUEST_TYPE_MASK['recipient'],
+                                        self.bmRequestType,
+                                        REQUEST_TYPE_RECIPIENT[val])
 
 class WrongPacketXferType(Exception): pass
 

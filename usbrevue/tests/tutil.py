@@ -15,6 +15,11 @@ from pprint import pprint as pp
 
 TEST_DATA_DIR = abspath(os.path.join(dirname(mods_dir), 'test-data'))
 
+# Quick check for Python 2.7+, to control using features which are only
+# available in there (such as @unittest.skip)
+PYTHON_2_7_PLUS = True  if sys.version_info[0] == 2 and sys.version_info[1] >= 7 \
+             else False
+
 def test_data(fname):
     return os.path.join(TEST_DATA_DIR, fname)
 
@@ -33,3 +38,4 @@ class TestUtil(object):
 
 if __name__ == '__main__':
     print 'TEST_DATA_DIR:', TEST_DATA_DIR
+    print 'PYTHON_2_7_PLUS:', PYTHON_2_7_PLUS
