@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import logging
 import os
 import os.path
 import struct
@@ -7,6 +8,7 @@ import sys
 import unittest
 from array import array
 from functools import partial
+from logging import debug
 from pprint import pformat
 
 import pcapy
@@ -14,6 +16,8 @@ import pcapy
 from tutil import *
 from usbrevue import *
 from util import apply_mask
+
+#logging.basicConfig(level=logging.DEBUG)
 
 class TestPackedFields(unittest.TestCase,TestUtil):
 
@@ -364,4 +368,4 @@ if __name__ == '__main__':
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupFieldPropagation))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.TextTestRunner(verbosity=2).run(suite)
