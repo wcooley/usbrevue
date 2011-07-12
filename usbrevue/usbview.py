@@ -82,7 +82,7 @@ class PacketModel(QAbstractTableModel):
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
             elif col == SETUP_COL and pack.flag_setup == '\0':
-                return '%02X %02X %02X%02X %02X%02X %02X%02X' % tuple(pack.setup)
+                pack.setup.data_to_str()
         elif role == Qt.FontRole:
             if col in [SETUP_COL, ADDRESS_COL, DATA_COL]:
                 return QFont("monospace")
