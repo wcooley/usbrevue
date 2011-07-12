@@ -302,6 +302,10 @@ class Packet(PackedFields):
     def is_interrupt_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
+    def is_setup_packet(self):
+        """Boolean test to determine if packet is a setup packet"""
+        return self.flag_setup == '\x00'
+
     def copy(self):
         new_packet = Packet(self.hdr, self.datapack)
         return new_packet
