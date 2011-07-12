@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+
+"""Core USB REVue classes: PackedFields, Packet and SetupField.
+
+"""
+
+__version__= '0.0.1'
 import sys
 
 from array import array
