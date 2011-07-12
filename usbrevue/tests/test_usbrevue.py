@@ -145,7 +145,7 @@ class TestPacket(unittest.TestCase,TestUtil):
         self.failIf(self.packet.is_interrupt_xfer(), 'Not interrupt xfer')
 
     def test_is_setup_packet(self):
-        self.failUnless(self.packet.is_setup_packet(), 'Is setup packet')
+        self.failUnless(self.packet.is_setup_packet, 'Is setup packet')
 
     def test_epnum(self):
         self.assertEqual(self.packet.epnum, 0x80, 'Unmodified epnum')
