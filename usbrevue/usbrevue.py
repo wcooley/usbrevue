@@ -252,7 +252,7 @@ class Packet(PackedFields):
     # (xfer_type == 0)
     @property
     def error_count(self):
-        if self.is_isochronous_xfer():
+        if self.is_isochronous_xfer:
             return self.cache('error_count', lambda a: self.unpacket(a)[0])
         else:
             # FIXME Raise WrongPacketXferType instead
@@ -260,7 +260,7 @@ class Packet(PackedFields):
 
     @property
     def numdesc(self):
-        if self.is_isochronous_xfer():
+        if self.is_isochronous_xfer:
             return self.cache('numdesc', lambda a: self.unpacket(a)[0])
         else:
             # FIXME Raise WrongPacketXferType instead
@@ -270,7 +270,7 @@ class Packet(PackedFields):
     # (xfer_type in [0,1])
     @property
     def interval(self):
-        if self.is_isochronous_xfer() or self.is_interrupt_xfer():
+        if self.is_isochronous_xfer or self.is_interrupt_xfer:
             return self.cache('interval', lambda a: self.unpacket(a)[0])
         else:
             # FIXME Raise WrongPacketXferType instead
@@ -279,22 +279,26 @@ class Packet(PackedFields):
     @property
     def start_frame(self):
         # start_frame is only meaningful for isochronous transfers
-        if self.is_isochronous_xfer():
+        if self.is_isochronous_xfer:
             return self.cache('start_frame', lambda a: self.unpacket(a)[0])
         else:
             # FIXME Raise WrongPacketXferType instead
             return 0
 
     # Boolean tests for transfer types
+    @property
     def is_isochronous_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['isochronous']
 
+    @property
     def is_bulk_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['bulk']
 
+    @property
     def is_control_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['control']
 
+    @property
     def is_interrupt_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
@@ -338,16 +342,16 @@ class Packet(PackedFields):
         # error_count and numdesc are only meaningful for isochronous transfers
         # (xfer_type == 0)
         #if (self.xfer_type == 0):
-        if self.is_isochronous_xfer():
+        if self.is_isochronous_xfer:
             print "error_count = %d" % (self.error_count)
             print "numdesc = %d" % (self.numdesc)
         # interval is only meaningful for isochronous or interrupt transfers)
         # (xfer_type in [0,1]))
         #if (self.xfer_type in [0,1]):
-        if self.is_isochronous_xfer() or self.is_interrupt_xfer():
+        if self.is_isochronous_xfer or self.is_interrupt_xfer:
             print "interval = %d" % (self.interval)
         # start_frame is only meaningful for isochronous transfers)
-        if self.is_isochronous_xfer():
+        if self.is_isochronous_xfer:
             print "start_frame = %d" % (self.start_frame)
         print "xfer_flags = %d" % (self.xfer_flags)
         print "ndesc = %d" % (self.ndesc)

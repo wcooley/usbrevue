@@ -139,10 +139,10 @@ class TestPacket(unittest.TestCase,TestUtil):
 
     # Might be good to test all permutations
     def test_xfer_type_tests(self):
-        self.failIf(self.packet.is_isochronous_xfer(), 'Not isoc xfer')
-        self.failIf(self.packet.is_bulk_xfer(), 'Not bulk xfer')
-        self.failUnless(self.packet.is_control_xfer(), 'Is control xfer')
-        self.failIf(self.packet.is_interrupt_xfer(), 'Not interrupt xfer')
+        self.failIf(self.packet.is_isochronous_xfer, 'Not isoc xfer')
+        self.failIf(self.packet.is_bulk_xfer, 'Not bulk xfer')
+        self.failUnless(self.packet.is_control_xfer, 'Is control xfer')
+        self.failIf(self.packet.is_interrupt_xfer, 'Not interrupt xfer')
 
     def test_is_setup_packet(self):
         self.failUnless(self.packet.is_setup_packet, 'Is setup packet')
