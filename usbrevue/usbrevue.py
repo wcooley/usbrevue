@@ -238,15 +238,11 @@ class Packet(PackedFields):
 
     @property
     def setup(self):
-        # setup is only meaningful if flag_setup == '\x00'
-        # NB: The usbmon doc says flag_setup should be 's' but that seems to be
-        # only for the text interface, because is seems to be 0x00 and
-        # Wireshark agrees.
 
         def _update_setup(self, datapack):
             self.repacket('setup', [datapack.tostring()])
 
-        if self.flag_setup == '\x00':
+        if self.is_setup_packet:
             return self.cache('setup',
                     lambda a:
                         SetupField(self.unpacket(a)[0],
@@ -302,6 +298,9 @@ class Packet(PackedFields):
     def is_interrupt_xfer(self):
         return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
+    # NB: The usbmon doc says flag_setup should be 's' but that seems to be
+    # only for the text interface, because is seems to be 0x00 and
+    # Wireshark agrees.
     @property
     def is_setup_packet(self):
         """Boolean test to determine if packet is a setup packet"""
@@ -333,9 +332,9 @@ class Packet(PackedFields):
         print "status = %d" % (self.status)
         print "length = %d" % (self.length)
         print "len_cap = %d" % (self.len_cap)
-        # setup is only meaningful if flag_setup == 's')
-        if self.flag_setup == 's':
-            print "setup = %d" % (self.setup)
+        # setup is only meaningful if self.is_setup_packet is True)
+        if self.is_setup_packet:
+            print "setup = %d" % (self.setup.data_to_str())
         # error_count and numdesc are only meaningful for isochronous transfers
         # (xfer_type == 0)
         #if (self.xfer_type == 0):

@@ -81,7 +81,7 @@ class PacketModel(QAbstractTableModel):
                                                "oi"[pack.epnum >> 7])
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
-            elif col == SETUP_COL and pack.flag_setup == '\0':
+            elif col == SETUP_COL and pack.is_setup_packet:
                 return pack.setup.data_to_str()
         elif role == Qt.FontRole:
             if col in [SETUP_COL, ADDRESS_COL, DATA_COL]:

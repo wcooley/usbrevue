@@ -511,7 +511,7 @@ class Replayer(object):
         # Check to see if this is a setup packet.
         # It is safe to decode setup packet if setup flag is 's'
         # Packet can be both a setup and a submission packet
-        if packet.flag_setup == 's':
+        if packet.is_setup_packet:
             #
             self.send_setup_packet(packet, ep)
             if packet.event_type == 'S':
