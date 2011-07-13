@@ -513,9 +513,9 @@ class Replayer(object):
         # Packet can be both a setup and a submission packet
         if packet.is_setup_packet:
             #
-            self.send_setup_packet(packet, ep)
-            if packet.event_type == 'S':
-                self.send_submission_packet(packet, ep)
+            self.send_setup_packet(packet)
+            ##if packet.event_type == 'S':
+            #    self.send_submission_packet(packet, ep)
 
         # Otherwise check to see if it is a submission packet.
         # Submission means xfer from host to USB device.
@@ -529,7 +529,7 @@ class Replayer(object):
 
 
 
-    def send_setup_packet(self, packet, ep):
+    def send_setup_packet(self, packet):
         if self.debug:
             print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
         if packet.urb not in self.urbs:
@@ -540,11 +540,10 @@ class Replayer(object):
                 print 'Current urbs = ', self.urbs
 
         # IN means read bytes from device to host.
-        if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN: 
+        if (packet.epnum == 0x80):
             self.ctrl_transfer_from_device(packet)
-
         # OUT means write bytes from host to device.
-        elif usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
+        elif (packet.epnum == 0x00):
             self.ctrl_transfer_to_device(packet)
 
 
@@ -575,16 +574,16 @@ class Replayer(object):
 
     def ctrl_transfer_to_device(self, packet):
         #bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
+        bmRequestType = packet.setup.bmRequestType
         print 'First bmRequestType is ', bmRequestType
-        bmRequestType = SETUP_FIELD_FORMAT.bmRequestType
-        print 'Second bmRequestType is ', bmRequestType
-        bmRequest = SETUP_FIELD_FORMAT.bmRequest
-        wValue = SETUP_FIELD_FORMAT.wValue
-        wIndex = SETUP_FIELD_FORMAT.wIndex
+        bRequest = packet.setup.bRequest
+        wValue = packet.setup.wValue
+        wIndex = packet.setup.wIndex
+        print packet.data
         # If no data payload then send_array should be None
         if self.debug:
             print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
-            numbytes = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, packet.data)
+            numbytes = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.data)
             if numbytes != len(packet.data):
                 print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
 
@@ -592,18 +591,17 @@ class Replayer(object):
 
     def ctrl_transfer_from_device(self, packet):
         #bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
-        print 'First bmRequestType is ', bmRequestType
-        bmRequestType = SETUP_FIELD_FORMAT.bmRequestType
+        bmRequestType = packet.setup.bmRequestType
         print 'Second bmRequestType is ', bmRequestType
-        bmRequest = SETUP_FIELD_FORMAT.bmRequest
-        wValue = SETUP_FIELD_FORMAT.wValue
-        wIndex = SETUP_FIELD_FORMAT.wIndex
+        bRequest = packet.setup.bRequest
+        wValue = packet.setup.wValue
+        wIndex = packet.setup.wIndex
         # If no data payload then numbytes should be 0
         if self.debug:
             print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
-        ret_array = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, packet.length)
+        ret_array = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.length)
         if self.debug:
-            print stderr, '*************    Return array before join =', ret_array
+            sys.stderr.write('*************    Return array before join = %s\n' % ret_array)
         if len(ret_array) != packet.length:
             print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), packet.length)
 
@@ -624,12 +622,14 @@ class Replayer(object):
 
 
     def read_from_device(self, packet):
+        TIMEOUT = 100
         ret_array = []
         if self.debug:
             print 'Attempting to read %d bytes from device to host' % len(packet.data)
         numbytes = len(packet.data)
         if numbytes:
-            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+#            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+            ret_array = self.device.read(self.ep_address, packet.len_cap, self.logical_iface, TIMEOUT)
             if self.debug:
                 print 'Finished attempting to read %d callback bytes from device to host' % len(packet.data)
                 print 'Actually read %d callback bytes from device to host' % len(ret_array)
@@ -781,10 +781,11 @@ if __name__ == '__main__':
     #print '2'
     print_options(options)
     #print '3'
-    pcap = pcapy.open_offline('-')
+    pcap = pcapy.open_offline(options.infile)
     #print '4'
-    #if not sys.stdout.isatty():       # What is this for?
-    out = pcap.dump_open('-')
+    out = None
+    if not sys.stdout.isatty():
+    	out = pcap.dump_open('-')
     #print '5'
     replayer = Replayer(options)
     #print '6'
