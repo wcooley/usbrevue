@@ -85,7 +85,7 @@ class BytePlot(Qwt.QwtPlot):
         self.setCanvasBackground(Qt.Qt.white)
         self.alignScales()
 
-        self.x = range(1000)
+        self.x = range(100)
 
         self.curve = ByteCurve("Byte 1")
         self.curve.attach(self)
