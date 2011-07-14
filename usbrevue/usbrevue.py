@@ -2,6 +2,11 @@
 
 """Core USB REVue classes: PackedFields, Packet and SetupField.
 
+    * PackedFields represents a generic interface to unpacking and repacking data
+      based on a table.
+    * Packet represents a USBMon packet.
+    * SetupField represents the 'setup' attribute of the Packet.
+
 """
 
 __version__= '0.0.1'
@@ -68,7 +73,7 @@ class PackedFields(object):
 
     A PackedFields object is defined by a format table and sequence of data.
     The format table lists the name of the field (which becomes an object
-    attribute), a `struct` format code and byte offset.
+    attribute), a ``struct`` format code and byte offset.
 
     The format table is a dict with entries with the following format:
 
@@ -80,6 +85,16 @@ class PackedFields(object):
     format_table = dict()
 
     def __init__(self, format_table=None, datapack=None, update_parent=None):
+        """Takes as arguments:
+            1. format_table
+                Described above
+            2. datapack
+                String or array of packed data
+            3. update_parent
+                Call-back function to enable attribute changes to flow up a
+                heirarchy of PackedField objects. It requires, as argument, the
+                datapack of the sub-object. Can be None.
+                """
         self._cache = dict()
 
         if format_table != None:
@@ -120,14 +135,11 @@ class PackedFields(object):
         return pack_into(fmt, self.datapack, offset, *vals)
 
     def __setattr__(self, attr, val):
-        # __setattr__ is more complicated than __getattr__ because it is
-        # called even for existing attributes, whereas __getattr__ is not. Since
-        # the attributes in self.format_table are the only ones that we want to
-        # dynamically update, we explicitly check for those and otherwise call up
-        # to object's __setattr__ which handles "regular" attributes (including
-        # properties) as expected.
-        """Dynamically update attributes in self.format_table, otherwise call
-        up to object's version."""
+        """__setattr__ is called went setting all attributes, so it must
+        differentiate between tabled-based attributes and regular attributes.
+        If the attribute is not a key in self.format_table, then it calls up to
+        ``object``'s __setattr__, which handles "normal" attributes,
+        properties, etc."""
         if attr in self.format_table:
             self._cache[attr] = val
             self.repacket(attr, [val])
@@ -141,15 +153,17 @@ class PackedFields(object):
     # a mapping type, so it can be used as e.g. the global or local namespace
     # with 'eval'.
     def __getitem__(self, attr):
+        """Allows instance to be accessed as dict using attributes as keys."""
         return getattr(self, attr)
 
     def __setitem__(self, attr, val):
+        """Allows instance to be updated as dict using attributes as keys."""
         setattr(self, attr, val)
 
     @property
     def datapack(self):
-        """Holds the mutable sequence type (probably array) containing the data
-        which is packed into or unpacked from."""
+        """Holds the array containing the data which is packed into or unpacked
+        from."""
         return self.__dict__['datapack']
 
     @datapack.setter
@@ -162,17 +176,46 @@ class PackedFields(object):
 
     def repack(self):
         """
-        Returns a binary string of the packet information.
+        Returns a string representation of the datapack.
         """
         return self.datapack.tostring()
 
 
 class Packet(PackedFields):
-    """The Packet class adds higher-level semantics over the lower-level field
+    """The ``Packet`` class adds higher-level semantics over the lower-level field
     packing and unpacking.
+
+    The following attributes are extracted dynamically from the packet data and
+    re-packed into the data when assigned to.
+
+        * urb
+        * event_type
+        * xfer_type
+        * epnum
+        * devnum
+        * busnum
+        * flag_setup
+        * flag_data
+        * ts_sec
+        * ts_usec
+        * status
+        * length
+        * len_cap
+        * xfer_flags
+        * ndesc
+        * data
+
+    Other attributes are extracted dynamically but require more implementation
+    than PackedFields provides by default and thus are separate properties with
+    their own docstrings.
+
+    These attributes correspond with the struct usbmon_packet data members from:
+        http://www.kernel.org/doc/Documentation/usb/usbmon.txt
     """
 
     def __init__(self, hdr=None, pack=None):
+        """Requires a libpcap/pcapy header and packet data."""
+
         super(Packet, self).__init__()
         self.format_table = USBMON_PACKET_FORMAT
 
@@ -189,6 +232,7 @@ class Packet(PackedFields):
 
     @property
     def hdr(self):
+        """Accessor for libpcap header."""
         return self._hdr
 
     def diff(self, other):
@@ -224,20 +268,27 @@ class Packet(PackedFields):
 
     @property
     def datalen(self):
+        """Return the length of the data payload of the packet."""
         return len(self.datapack) - 64
 
     # Special attribute accessors that have additional restrictions
     @property
     def data(self):
+        """Data payload. Note that while there is only a get accessor for this
+        attribute, it is a list and is therefore mutable. It cannot, however,
+        be easily grown or shrunk."""
         return self.cache('data',
                 lambda a: list(self.unpacket(a, self.datalen)))
 
     def repack(self):
+        """Returns the packet data as a string, taking care to repack any
+        "loose" attributes."""
         self.repacket('data', self.data, self.datalen)
         return super(Packet, self).repack()
 
     @property
     def setup(self):
+        """An instance of the SetupField class."""
 
         def _update_setup(self, datapack):
             self.repacket('setup', [datapack.tostring()])
@@ -252,6 +303,7 @@ class Packet(PackedFields):
     # (xfer_type == 0)
     @property
     def error_count(self):
+        """Isochronous error_count"""
         if self.is_isochronous_xfer:
             return self.cache('error_count', lambda a: self.unpacket(a)[0])
         else:
@@ -260,6 +312,7 @@ class Packet(PackedFields):
 
     @property
     def numdesc(self):
+        """Isochronous numdesc"""
         if self.is_isochronous_xfer:
             return self.cache('numdesc', lambda a: self.unpacket(a)[0])
         else:
@@ -270,6 +323,7 @@ class Packet(PackedFields):
     # (xfer_type in [0,1])
     @property
     def interval(self):
+        """Isochronous/interrupt interval"""
         if self.is_isochronous_xfer or self.is_interrupt_xfer:
             return self.cache('interval', lambda a: self.unpacket(a)[0])
         else:
@@ -278,6 +332,7 @@ class Packet(PackedFields):
 
     @property
     def start_frame(self):
+        """Isochronous start_frame"""
         # start_frame is only meaningful for isochronous transfers
         if self.is_isochronous_xfer:
             return self.cache('start_frame', lambda a: self.unpacket(a)[0])
@@ -288,18 +343,22 @@ class Packet(PackedFields):
     # Boolean tests for transfer types
     @property
     def is_isochronous_xfer(self):
+        """Boolean test if transfer-type is isochronous"""
         return self.xfer_type == USBMON_TRANSFER_TYPE['isochronous']
 
     @property
     def is_bulk_xfer(self):
+        """Boolean test if transfer-type is bulk"""
         return self.xfer_type == USBMON_TRANSFER_TYPE['bulk']
 
     @property
     def is_control_xfer(self):
+        """Boolean test if transfer-type is control"""
         return self.xfer_type == USBMON_TRANSFER_TYPE['control']
 
     @property
     def is_interrupt_xfer(self):
+        """Boolean test if transfer-type is interrupt"""
         return self.xfer_type == USBMON_TRANSFER_TYPE['interrupt']
 
     # NB: The usbmon doc says flag_setup should be 's' but that seems to be
@@ -311,6 +370,7 @@ class Packet(PackedFields):
         return self.flag_setup == '\x00'
 
     def copy(self):
+        """Make a complete copy of the Packet."""
         new_packet = Packet(self.hdr, self.datapack)
         return new_packet
 
@@ -319,10 +379,7 @@ class Packet(PackedFields):
         # FIXME This should be __str__ and can probably do most or all of this
         # programmatically--iterating through each attribute by offset.
         # Requires that inappropriate attributes raise exceptions, etc.
-        """
-        Print detailed packet information for debug purposes.
-        Assumes header exists.
-        """
+        """Print detailed packet header information for debug purposes. """
         print "urb = %d" % (self.urb)
         print "event_type = %s" % (self.event_type)
         print "xfer_type = %d" % (self.xfer_type)
@@ -364,10 +421,7 @@ class Packet(PackedFields):
 
 
     def print_pcap_summary(self):
-        """ 
-        Print concise packet summary information for debug purposes.    
-        Assumes header exists.
-        """
+        """Print concise pcap header summary information for debug purposes."""
         print ('%s: Captured %d bytes, truncated to %d bytes' % (
                 datetime.datetime.now(), self.hdr.getlen(),
                 self.hdr.getcaplen()))
