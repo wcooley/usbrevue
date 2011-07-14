@@ -12,9 +12,13 @@ import numpy as np
 
 class ByteModel(QAbstractTableModel):
     bytes_added = pyqtSignal()
+    row_added = pyqtSignal()
+    col_added = pyqtSignal()
 
     def __init__(self, parent=None):
         QAbstractTableModel.__init__(self, parent)
+
+        self.cb_states = list()
 
 
     def rowCount(self, parent = QModelIndex()):
@@ -29,9 +33,9 @@ class ByteModel(QAbstractTableModel):
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
-        val = bytes[col][row]
+        val = bytes[col][row-1]
 
-        if (role == Qt.Qt.DisplayRole):
+        if role == Qt.Qt.DisplayRole:
             if isinstance(val, str):
                 return val
             else:
@@ -39,13 +43,33 @@ class ByteModel(QAbstractTableModel):
                     return '-'
                 else:
                     return "%02X" % val
+        elif role == Qt.Qt.CheckStateRole and row == 0:
+            return QVariant(self.cb_states[col])
         return QVariant()
+
+    def setData(self, index, value, role = Qt.Qt.EditRole):
+        if role == Qt.Qt.CheckStateRole:
+            row = index.row()
+            col = index.column()
+            if row == 0:
+                if self.cb_states[col] == 0:
+                    self.cb_states[col] = 2
+                else:
+                    self.cb_states[col] = 0
+            return True
+        return False
 
     def headerData(self, section, orientation, role = Qt.Qt.DisplayRole):
         if role == Qt.Qt.DisplayRole:
             if orientation == Qt.Qt.Horizontal:
                 return section
         return QVariant()
+
+    def flags(self, index):
+        if index.row() == 0:
+            return Qt.Qt.ItemIsUserCheckable | Qt.Qt.ItemIsEnabled
+        else:
+            return Qt.Qt.ItemIsEnabled | Qt.Qt.ItemIsSelectable
 
     def new_packet(self, packet):
         if len(packet.data) > 0:
@@ -61,9 +85,12 @@ class ByteModel(QAbstractTableModel):
                 for i in range(len(packet.data) - len(bytes)):
                     if first_row:
                         bytes.append(list())
+                        self.cb_states.append(0)
                     else:
                         bytes.append([-1] * len(bytes[0]))
+                        self.cb_states.append(0)
                 self.endInsertColumns()
+                self.col_added.emit()
 
             self.beginInsertRows(QModelIndex(), l, l)
             offset = 0
@@ -74,11 +101,49 @@ class ByteModel(QAbstractTableModel):
                 bytes[offset].append(-1)
                 offset += 1
             self.endInsertRows()
+            self.row_added.emit()
             self.bytes_added.emit()
+
+
+class ByteDelegate(QItemDelegate):
+    def __init__(self, parent=None, *args):
+        QItemDelegate.__init__(self, parent, *args)
+
+    def paint(self, painter, option, index):
+            QItemDelegate.paint(self, painter, option, index)
+
+    def createEditor(self, parent, option, index):
+        if index.isValid() and index.column() == 0:
+            return QCheckBox(parent)
+        else:
+            return QItemDelegate.createEditor(self, parent, option, index)
+
+    def setEditorData(self, editor, index):
+        if index.isValid() and index.column() == 0:
+            value = index.model().data(index, Qt.Qt.DisplayRole)
+        else:
+            QItemDelegate.setEditorData(self, editor, index)
+
+    def setModelData(self, editor, model, index):
+        if index.isValid() and index.column() == 0:
+            self.cb = QCheckBox(editor)
+            if (self.cb.checkState() == Qt.Qt.Checked):
+                self.value = 'Y'
+            else:
+                self.value = 'N'
+        else:
+            QItemDelegate.setModelData(self, editor, model, index)
+
+    def updateEditorGeometry(self, editor, option, index):
+        QItemDelegate.updateEditorGeometry(self, editor, option, index)
+        
 
 class ByteView(QTableView):
     def __init__(self, parent=None):
         QTableView.__init__(self, parent)
+
+    def col_added(self):
+        self.resizeColumnsToContents()
 
 
 class BytePlot(Qwt.QwtPlot):
@@ -164,10 +229,13 @@ class USBGraph(QApplication):
 
         self.bytemodel = ByteModel()
         self.byteview = ByteView()
+        self.bytedelegate = ByteDelegate()
         self.byteview.setModel(self.bytemodel)
+        self.byteview.setItemDelegate(self.bytedelegate)
         self.byteplot = BytePlot()
 
         self.bytemodel.bytes_added.connect(self.bytes_added)
+        self.bytemodel.col_added.connect(self.byteview.col_added)
 
         self.hb = QHBoxLayout()
         self.hb.addWidget(self.byteview)
