@@ -15,97 +15,67 @@ class ByteModel(QAbstractTableModel):
 
 
     def rowCount(self, parent = QModelIndex()):
-        return 100
+        if len(bytes) > 0:
+            return len(bytes[0])
+        else:
+            return 0
 
     def columnCount(self, parent = QModelIndex()):
-        return 4
+        return len(bytes)
 
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
+        val = bytes[col][row]
 
         if (role == Qt.Qt.DisplayRole):
-            if len(bytes) > col and len(bytes[col]) > row:
-                return QVariant(bytes[col][row])
-                # return QString('Row%1, Column%2').arg(index.row() + 1).arg(index.column() + 1)
+            #if len(bytes) > col and len(bytes[col]) > row:
+            if isinstance(val, str):
+                return val
+            else:
+                return "%02X" % val
+            # return QString('Row%1, Column%2').arg(index.row() + 1).arg(index.column() + 1)
         return QVariant()
 
     def headerData(self, section, orientation, role = Qt.Qt.DisplayRole):
-        if (role == Qt.Qt.DisplayRole):
-            if (orientation == Qt.Qt.Horizontal):
-                if section == 0:
-                    return QString("first")
-                elif section == 1:
-                    return QString("second")
-                elif section == 2:
-                    return QString("third")
+        if role == Qt.Qt.DisplayRole:
+            if orientation == Qt.Qt.Horizontal:
+                return section
         return QVariant()
 
+    def new_packet(self, packet):
+        if len(packet.data) > 0:
+            print packet.data
+            if len(bytes) > 0:
+                l = len(bytes[0])
+            else:
+                l = 0
+            w = len(bytes)
 
+            first_row = True if len(bytes) == 0 else False
+            if len(packet.data) > len(bytes):
+                self.beginInsertColumns(QModelIndex(), w, max(len(bytes), len(packet.data) - 1))
+                for i in range(len(packet.data) - len(bytes)):
+                    if first_row:
+                        bytes.append(list())
+                    else:
+                        bytes.append(list('-' * len(bytes[0])))
+                self.endInsertColumns()
+            self.beginInsertRows(QModelIndex(), l, l)
+
+            offset = 0
+            for b in packet.data:
+                bytes[offset].append(b)
+                offset += 1
+            while offset < len(bytes):
+                bytes[offset].append('-')
+                offset += 1
+            self.endInsertRows()
 
 
 class ByteView(QTableView):
     def __init__(self, parent=None):
         QTableView.__init__(self, parent)
-
-    def new_packet(self, packet):
-        if len(packet.data) > 0:
-            if len(bytes) < len(packet.data):
-                for i in range(len(packet.data) - len(bytes)):
-                    bytes.append(list())
-                    
-            for i in range(len(packet.data)):
-                bytes[i].append(packet.data[i])
-
-
-
-class BytePlot(Qwt.QwtPlot):
-    def __init__(self, parent=None):
-        Qwt.QwtPlot.__init__(self, parent)
-
-        self.setCanvasBackground(Qt.Qt.white)
-        self.alignScales()
-
-        self.x = range(100)
-        
-        self.byteCurves = list()
-
-        self.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.BottomLegend)
-
-
-    def setModel(self, model):
-        self.model = model
-
-
-    def alignScales(self):
-        self.canvas().setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Plain)
-        self.canvas().setLineWidth(1)
-        for i in range(Qwt.QwtPlot.axisCnt):
-            scaleWidget = self.axisWidget(i)
-            if scaleWidget:
-                scaleWidget.setMargin(0)
-            scaleDraw = self.axisScaleDraw(i)
-            if scaleDraw:
-                scaleDraw.enableComponent(
-                    Qwt.QwtAbstractScaleDraw.Backbone, False)
-
-
-    def new_packet(self, packet):
-        if len(packet.data) > 0:
-            if len(self.byteCurves) < len(packet.data):
-                for i in range(len(packet.data) - len(self.byteCurves)):
-                    self.add_byte_curve(i)
-
-            for i in range(len(bytes)):
-                self.byteCurves[i].setData(self.x, bytes[i])
-
-            self.replot()
-
-
-    def add_byte_curve(self, i):
-        self.byteCurves.append(Qwt.QwtPlotCurve('Byte ' + str(i)))
-        self.byteCurves[-1].attach(self)
-        self.byteCurves[-1].setPen(Qt.QPen(Qt.Qt.red))
 
 
 
@@ -118,12 +88,9 @@ class USBGraph(QApplication):
         self.bytemodel = ByteModel()
         self.byteview = ByteView()
         self.byteview.setModel(self.bytemodel)
-        self.byteplot = BytePlot()
-        self.byteplot.setModel(self.bytemodel)
 
         self.hb = QHBoxLayout()
         self.hb.addWidget(self.byteview)
-        self.hb.addWidget(self.byteplot)
 
         self.w.setLayout(self.hb)
         self.w.show()
@@ -140,7 +107,7 @@ class USBGraph(QApplication):
 
 
     def new_packet(self, packet):
-        self.byteview.new_packet(packet)
+        self.bytemodel.new_packet(packet)
 
 
 
