@@ -10,6 +10,7 @@ import traceback
 import time
 import math
 import select
+import signal
 #from optparse import OptionParser
 
 #For skype handset
@@ -42,6 +43,7 @@ BUS = 0x6
 DEVICE = 0x3
 
 
+
 class Replayer(object):
     """
     Class that encapsulates functionality to replay pcap steam packets 
@@ -57,10 +59,11 @@ class Replayer(object):
         argument contains either defaults values for these fields or 
         user designated values.
         """
-        self.urbs = []
         self.debug = options.debug
         if self.debug:
             print '\nIn __init__'
+        self.init_handlers()
+        self.urbs = []
         self.vid = options.vid
         self.pid = options.pid
         self.logical_cfg = options.logical_cfg
@@ -68,8 +71,6 @@ class Replayer(object):
         self.logical_alt_setting = options.logical_alt_setting
         self.ep_address = options.ep_address
         self.logical_ep = options.ep_address & 0x0f
-        if self.debug:
-            print 'Logical ep = %d' % self.logical_ep
 
         self.device = self.get_usb_device(self.vid, self.pid)
         if self.device is None:
@@ -78,10 +79,10 @@ class Replayer(object):
         self.set_configuration(self.logical_cfg)
         self.set_interface(self.logical_iface, self.logical_alt_setting)
         if self.debug:
+            print 'Logical ep = %d' % self.logical_ep
             self.print_descriptor_info()
 
         self.ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
-        #assert self.ep is not None
         if not self.ep:
             raise ValueError('Could not find USB Device with endpoint address', self.ep_address)
 
@@ -95,7 +96,6 @@ class Replayer(object):
         in the packet.  
         """
         print 'In initialize_descriptors'
-
         if (packet.epnum != self.ep_address):
             if self.debug:
                 print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
@@ -105,11 +105,6 @@ class Replayer(object):
         self.set_interface(self.logical_iface, self.logical_alt_setting)
         if self.debug:
             self.print_descriptor_info()
-        # set_configuration is used to enable a device and should contain
-        # the value of bConfigurationValue of the desired configuration
-        # descriptor in the lower byte of wValue to select which configuration
-        # to enable.
-        #self.device.set_configuration(self.cfg_num)
 
 
 
@@ -121,7 +116,6 @@ class Replayer(object):
         if self.debug:
             print 'In reset_device: resetting device'
         self.device.reset()
-        # TODO: Do I need to sleep here for awhile?
         res = self.device.is_kernel_driver_active(self.logical_iface)
         if not res:
             print 'Re-attaching kernal driver'
@@ -328,6 +322,12 @@ class Replayer(object):
                     print '    endpoint address = 0x%x ' % (ep.bEndpointAddress)
 
     
+    # Configuration descriptor specifies values such as amount of power
+    # this particular configuration uses, if device is self or bus 
+    # powered and number of interfaces it has. Few devices have more
+    # than 1 configuration, so cfg index will usually be empty and we will
+    # simply select the only active configuration at index 0. Only 1 
+    # configuration may be enabled at a time
     def set_configuration(self, logical_cfg=0):
         """ 
         Set configuration descriptor based on the cfg_logical_idx for desired 
@@ -338,22 +338,6 @@ class Replayer(object):
         if self.debug:
             print 'In set_configuration'
         self.cfg = self.device[logical_cfg]
-        #dev.set_configuration(logical_cfg)
-
-
-    def set_interface(self, logical_iface=0, logical_alt_setting=0):
-        """ 
-        Set interface descriptor based on interface and alternate setting numbers
-        Example to access the first interface and first alternate setting:  
-          iface = cfg[(0,0)]
-        """
-        if self.debug:
-            print 'In set_interface'
-        self.iface = self.cfg[(logical_iface, logical_alt_setting)]
-        try:
-            self.device.set_interface_altsetting(self.iface)
-        except usb.core.USBError:
-            pass
 
 
     # Interface descriptor resolves into a functional group performing a
@@ -370,60 +354,20 @@ class Replayer(object):
     # interface descriptors.  If interface 1, altsetting 1 is set, then
     # we can change the endpoint settings of interface 1, altsetting 1 
     # without affecting the endpoint settings of interface 1, altsetting 0.
-    #def get_first_interface(self, device):
-    #  """ 
-    #  Get the first interface for the given device.
-    #  """
-    #  iface = device.getinterface_altsetting()
-    #  return iface
-
-
-    # Configuration descriptor specifies values such as amount of power
-    # this particular configuration uses, if device is self or bus 
-    # powered and number of interfaces it has. Few devices have more
-    # than 1 configuration, so cfg index will usually be empty and we will
-    # simply select the only active configuration at index 0. Only 1 
-    # configuration may be enabled at a time
-    #def set_configuration(self, device, cfg_num=None):
-    #  """ 
-    #  Set the configuration.  If conf is None then set to the
-    #  active configuration.
-    #  """
-    #  if conf is None:
-    #    device.set_configuration()
-    #  else:
-    #    device.set_configuration(cfg_num)
-
-
-    def wait(self, packettime):
-        # I think time.time is accurate to 1 microsecond
-        # math.modf returns the fractional and integer parts of X
-        starttime = time.time()
-        thistime = starttime
-        timetoend = starttime + packettime
+    def set_interface(self, logical_iface=0, logical_alt_setting=0):
+        """ 
+        Set interface descriptor based on interface and alternate setting numbers
+        Example to access the first interface and first alternate setting:  
+          iface = cfg[(0,0)]
+        """
         if self.debug:
-            print 'Start time  = %0.9f us' % starttime
-            print 'Packet time = %0.9f us' % packettime
-            print 'Time to end = %0.9f us' % timetoend
-        #(startfractpart, startintpart) = math.modf(starttime)
-        #print 'startfractpart = %d' % startfractpart
-        #print 'startintpart = %d' % startintpart
-        #(thisfractpart, thisintpart) = (startfractpart, startintpart)
-        #print 'startfractpart, startintpart = %d, %d' % (startfractpart, startintpart)
-        #starttime = startfracpart
-        #print 'Now Start time  = %0.9f us' % starttime
-     
-        #if self.debug:
-        #    print 'Start time(fract)  = %0.9f us' % starttime
-        #    print 'Packet time = %0.9f us' % packettime 
-        #    #print 'Last time   = %0.9f us' % lasttime
-        ## Wait for awhile before sending next usb packet
-        while timetoend < thistime:
-            thistime = time.time();  # I think this is in microseconds
-            if self.debug:
-                print 'This time = %0.9f us' % thistime
-            #exit(1)
-        return thistime    # thistime to be used for the next lasttime
+            print 'In set_interface'
+        self.iface = self.cfg[(logical_iface, logical_alt_setting)]
+        try:
+            self.device.set_interface_altsetting(self.iface)
+        except usb.core.USBError:
+            sys.stderr.write("Error trying to set interface alternate setting")
+            pass
 
 
     def run(self, pcap, out):
@@ -433,10 +377,8 @@ class Replayer(object):
         """
         inputs = []
         outputs = []
+        last_time = 0
         MAX_LOOPS = 10
-        if self.debug:
-            print 'Entering Replayer run loop'
-        #lasttime = time.time();  # I think this is in microseconds
         loops = 0
         if self.debug:
             self.print_device_enumeration_tree()
@@ -449,6 +391,8 @@ class Replayer(object):
             print 'Detaching kernal driver'
             self.device.detach_kernel_driver(self.logical_iface)
 
+        if self.debug:
+            print 'Entering Replayer run loop'
         while True:
             try:
                 if self.debug:
@@ -469,24 +413,32 @@ class Replayer(object):
                     packet.print_pcap_summary()
 
                 # Wait for awhile before sending next usb packet
-                #self.wait(packet.ts_usec)
                 print packet
-                timeout = packet.ts_usec/1000000
+                this_time = packet.ts_usec/1000000 - last_time
                 print 'Sleeping 1 seconds' 
                 time.sleep(1)
                 #select.select(inputs, outputs, inputs, timeout)
-                select.select(inputs, outputs, inputs, timeout)
+                select.select(inputs, outputs, inputs, this_time)
                 self.send_usb_packet(packet)
-                if loops > MAX_LOOPS:
-                    raise Exception
-        
-                #sys.exit("In run: Early exit for debug purposes")
+                #if loops > MAX_LOOPS:
+                    #raise Exception
+                last_time = this_time 
             except Exception:
                 sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
-                self.reset_device()
+                #self.reset_device()
                 traceback.print_exc()
                 sys.exit(1)
 
+
+
+    def keyboard_handler(self, signum, frame):
+        print 'Signal handler called with signal ', signum
+        #raise KeyboardInterrupt()
+        sys.exit(0)
+
+
+    def init_handlers(self):
+        signal.signal(signal.SIGINT, self.keyboard_handler)
 
 
     def send_usb_packet(self, packet):
@@ -504,18 +456,11 @@ class Replayer(object):
         #ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
         ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==packet.epnum)
 
-        res = self.device.is_kernel_driver_active(self.logical_iface)
-        if res:
-            print 'Detaching kernal driver'
-            self.device.detach_kernel_driver(self.logical_iface)
         # Check to see if this is a setup packet.
         # It is safe to decode setup packet if setup flag is 's'
         # Packet can be both a setup and a submission packet
         if packet.is_setup_packet:
-            #
-            self.send_setup_packet(packet, ep)
-            if packet.event_type == 'S':
-                self.send_submission_packet(packet, ep)
+            self.send_setup_packet(packet)
 
         # Otherwise check to see if it is a submission packet.
         # Submission means xfer from host to USB device.
@@ -529,7 +474,7 @@ class Replayer(object):
 
 
 
-    def send_setup_packet(self, packet, ep):
+    def send_setup_packet(self, packet):
         if self.debug:
             print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
         if packet.urb not in self.urbs:
@@ -540,11 +485,10 @@ class Replayer(object):
                 print 'Current urbs = ', self.urbs
 
         # IN means read bytes from device to host.
-        if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN: 
+        if (packet.epnum == 0x80):
             self.ctrl_transfer_from_device(packet)
-
         # OUT means write bytes from host to device.
-        elif usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
+        elif (packet.epnum == 0x00):
             self.ctrl_transfer_to_device(packet)
 
 
@@ -563,28 +507,26 @@ class Replayer(object):
             else:
                print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
                #raise ValueError('Packet urb id=0x%x has a callback but not a submission' % packet.urb)
-        try:
-            data = self.read_from_device(packet)
-        except:
-            print 'Did not read any data from callback: resetting device'
-            self.reset_device()
+        #try:
+            #data = self.read_from_device(packet)
+        #except:
+            #print 'Did not read any data from callback: resetting device'
+            #self.reset_device()
             #print 'Printing traceback ...'
             #traceback.print_exc()
 
 
 
     def ctrl_transfer_to_device(self, packet):
-        #bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
-        print 'First bmRequestType is ', bmRequestType
-        bmRequestType = SETUP_FIELD_FORMAT.bmRequestType
-        print 'Second bmRequestType is ', bmRequestType
-        bmRequest = SETUP_FIELD_FORMAT.bmRequest
-        wValue = SETUP_FIELD_FORMAT.wValue
-        wIndex = SETUP_FIELD_FORMAT.wIndex
+        bmRequestType = packet.setup.bmRequestType
+        bRequest = packet.setup.bRequest
+        wValue = packet.setup.wValue
+        wIndex = packet.setup.wIndex
+        print packet.data
         # If no data payload then send_array should be None
         if self.debug:
             print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
-            numbytes = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, packet.data)
+            numbytes = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.data)
             if numbytes != len(packet.data):
                 print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
 
@@ -592,18 +534,16 @@ class Replayer(object):
 
     def ctrl_transfer_from_device(self, packet):
         #bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
-        print 'First bmRequestType is ', bmRequestType
-        bmRequestType = SETUP_FIELD_FORMAT.bmRequestType
-        print 'Second bmRequestType is ', bmRequestType
-        bmRequest = SETUP_FIELD_FORMAT.bmRequest
-        wValue = SETUP_FIELD_FORMAT.wValue
-        wIndex = SETUP_FIELD_FORMAT.wIndex
+        bmRequestType = packet.setup.bmRequestType
+        bRequest = packet.setup.bRequest
+        wValue = packet.setup.wValue
+        wIndex = packet.setup.wIndex
         # If no data payload then numbytes should be 0
         if self.debug:
             print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
-        ret_array = self.device.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, packet.length)
+        ret_array = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.length)
         if self.debug:
-            print stderr, '*************    Return array before join =', ret_array
+            sys.stderr.write('*************    Return array before join = %s\n' % ret_array)
         if len(ret_array) != packet.length:
             print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), packet.length)
 
@@ -613,31 +553,37 @@ class Replayer(object):
         numbytes = 0  
         if packet.data:
            numbytes = ep.write(packet.data)
-        if self.debug:
-            print 'Wrote %d submission bytes to USB device', numbytes, ', expected to write %d bytes ', len(packet.data)
-        if numbytes != len(packet.data):
-            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(packet.data))
         else:
             if self.debug:
                 print 'Packet data is empty.  No submission data to send.'
+        if self.debug:
+            print 'Wrote %d submission bytes to USB device, expected to write %d bytes ' %(numbytes, packet.len_cap)
+        if numbytes != packet.len_cap:
+            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, packet.len_cap)
 
 
 
-    def read_from_device(self, packet):
+    def read_from_device(self, packet, ep):
+        TIMEOUT = 1000
         ret_array = []
         if self.debug:
-            print 'Attempting to read %d bytes from device to host' % len(packet.data)
-        numbytes = len(packet.data)
-        if numbytes:
-            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+            print 'Attempting to read %d bytes from device to host' % packet.length
+        if packet.length:
+#            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+            try:
+                ret_array = ep.read(packet.length, TIMEOUT)
+            except usb.core.USBError as e:
+                print e
+
+            #ret_array = self.device.read(ep, packet.length,  self.logical_iface, TIMEOUT)
             if self.debug:
-                print 'Finished attempting to read %d callback bytes from device to host' % len(packet.data)
+                print 'Finished attempting to read %d callback bytes from device to host' % packet.length
                 print 'Actually read %d callback bytes from device to host' % len(ret_array)
             if ret_array:
                 if self.debug:
-                    print '%d data items read from callback packet.  Data = ' % (len(ret_array), ret_array)
-                if numbytes != len(ret_array):
-                    print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, len(ret_array))
+                    print '%d data items read from callback packet.  Data = %s' % (len(ret_array), ret_array)
+                if packet.length != len(ret_array):
+                    print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (packet.length, len(ret_array))
             else:
                 if self.debug:
                     print 'No data items were read from callback packet.  '
@@ -663,7 +609,11 @@ class Replayer(object):
 
             # OUT means write bytes from host to device.
             #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
+            if packet.epnum & 0x80:
+                self.read_from_device(packet, ep)
+            else:
                 self.write_to_device(packet, ep)
+
 
             # IN means read bytes from device to host.
             #else:
@@ -781,10 +731,11 @@ if __name__ == '__main__':
     #print '2'
     print_options(options)
     #print '3'
-    pcap = pcapy.open_offline('-')
+    pcap = pcapy.open_offline(options.infile)
     #print '4'
-    #if not sys.stdout.isatty():       # What is this for?
-    out = pcap.dump_open('-')
+    out = None
+    if not sys.stdout.isatty():
+    	out = pcap.dump_open('-')
     #print '5'
     replayer = Replayer(options)
     #print '6'

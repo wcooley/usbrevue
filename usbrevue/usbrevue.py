@@ -395,7 +395,7 @@ class Packet(PackedFields):
         print "len_cap = %d" % (self.len_cap)
         # setup is only meaningful if self.is_setup_packet is True)
         if self.is_setup_packet:
-            print "setup = %d" % (self.setup.data_to_str())
+            print "setup = %s" % (self.setup.data_to_str())
         # error_count and numdesc are only meaningful for isochronous transfers
         # (xfer_type == 0)
         #if (self.xfer_type == 0):
