@@ -35,7 +35,10 @@ class ByteModel(QAbstractTableModel):
             if isinstance(val, str):
                 return val
             else:
-                return "%02X" % val
+                if val == -1:
+                    return '-'
+                else:
+                    return "%02X" % val
         return QVariant()
 
     def headerData(self, section, orientation, role = Qt.Qt.DisplayRole):
