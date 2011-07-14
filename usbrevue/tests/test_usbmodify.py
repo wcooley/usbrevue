@@ -10,6 +10,8 @@ from usbrevue import Packet
 import unittest
 import struct
 
+from tutil import *
+
 class ModAttrsByRoutineFile(unittest.TestCase):
     """Change each packet attribute to some value. All tests should
     pass.
@@ -529,7 +531,7 @@ class BadData(unittest.TestCase):
 
 
 def packet_generator():
-    pcap = pcapy.open_offline('testdump_usbmodify.pcap')
+    pcap = pcapy.open_offline(test_data('testdump_usbmodify.pcap'))
 
     while True:
         (hdr, pack) = pcap.next()

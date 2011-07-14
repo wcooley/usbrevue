@@ -13,7 +13,7 @@ sys.path.extend((tests_dir,mods_dir))
 from pprint import pprint as pp
 #pp(sys.path)
 
-TEST_DATA_DIR = abspath(os.path.join(dirname(mods_dir), 'test-data'))
+TEST_DATA_DIR = tests_dir
 
 # Quick check for Python 2.7+, to control using features which are only
 # available in there (such as @unittest.skip)
