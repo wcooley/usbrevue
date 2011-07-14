@@ -110,6 +110,7 @@ class BytePlot(Qwt.QwtPlot):
         if l > self.x_range:
             l = len(bytes[1])
             self.curve.setData(ByteData(range(l)[l-self.x_range:l], bytes[1][l-self.x_range:l], mask[l-self.x_range:l]))
+            self.setAxisScale(2, l-self.x_range, l)
         else:
             self.curve.setData(ByteData(range(l)[:self.x_range], bytes[1][:self.x_range], mask[:self.x_range]))
 
