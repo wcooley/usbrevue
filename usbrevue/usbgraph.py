@@ -162,6 +162,8 @@ class BytePlot(Qwt.QwtPlot):
     def cb_unchecked(self, column):
         self.curves[column].detach()
 
+        self.replot()
+
 class ByteData(Qwt.QwtArrayData):
     def __init__(self, x, y, mask):
         Qwt.QwtArrayData.__init__(self, x, y)
@@ -218,6 +220,7 @@ class USBGraph(QApplication):
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
         self.bytemodel.cb_checked.connect(self.byteplot.cb_checked)
+        self.bytemodel.cb_unchecked.connect(self.byteplot.cb_unchecked)
 
         self.hb = QHBoxLayout()
         self.hb.addWidget(self.byteview)
