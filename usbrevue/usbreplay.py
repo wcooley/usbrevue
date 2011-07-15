@@ -365,7 +365,8 @@ class Replayer(object):
         self.iface = self.cfg[(logical_iface, logical_alt_setting)]
         try:
             self.device.set_interface_altsetting(self.iface)
-        except usb.core.USBError:
+        except usb.core.USBError as e:
+            print 'In set_interface ', e
             sys.stderr.write("Error trying to set interface alternate setting")
             pass
 
@@ -434,6 +435,7 @@ class Replayer(object):
     def keyboard_handler(self, signum, frame):
         print 'Signal handler called with signal ', signum
         #raise KeyboardInterrupt()
+        self.reset_device()
         sys.exit(0)
 
 
@@ -477,12 +479,12 @@ class Replayer(object):
     def send_setup_packet(self, packet):
         if self.debug:
             print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
-        if packet.urb not in self.urbs:
-            if self.debug:
-                print 'Appending 0x%x to urb list' % packet.urb
-            self.urbs.append(packet.urb)
-            if self.debug:
-                print 'Current urbs = ', self.urbs
+        #if packet.urb not in self.urbs:
+        if self.debug:
+            print 'Appending 0x%x to urb list' % packet.urb
+        self.urbs.append(packet.urb)
+        if self.debug:
+            print 'Current urbs = ', self.urbs
 
         # IN means read bytes from device to host.
         if (packet.epnum == 0x80):
@@ -502,10 +504,10 @@ class Replayer(object):
             if self.debug:
                 print 'Removing 0x%x from urb list' % packet.urb
                 self.urbs.remove(packet.urb)
-                if self.debug:
-                    print 'Current urbs = ', self.urbs
-            else:
-               print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
+        else:
+            print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
+        if self.debug:
+            print 'Current urbs = ', self.urbs
                #raise ValueError('Packet urb id=0x%x has a callback but not a submission' % packet.urb)
         #try:
             #data = self.read_from_device(packet)
@@ -518,32 +520,20 @@ class Replayer(object):
 
 
     def ctrl_transfer_to_device(self, packet):
-        bmRequestType = packet.setup.bmRequestType
-        bRequest = packet.setup.bRequest
-        wValue = packet.setup.wValue
-        wIndex = packet.setup.wIndex
-        print packet.data
         # If no data payload then send_array should be None
         if self.debug:
             print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
-            numbytes = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.data)
-            if numbytes != len(packet.data):
-                print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
+        numbytes = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.data)
+        if numbytes != len(packet.data):
+            print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
 
 
 
     def ctrl_transfer_from_device(self, packet):
-        #bmRequestType, bmRequest, wValue, wIndex = packet.data[0:3]
-        bmRequestType = packet.setup.bmRequestType
-        bRequest = packet.setup.bRequest
-        wValue = packet.setup.wValue
-        wIndex = packet.setup.wIndex
         # If no data payload then numbytes should be 0
         if self.debug:
             print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
-        ret_array = self.device.ctrl_transfer(bmRequestType, bRequest, wValue, wIndex, packet.length)
-        if self.debug:
-            sys.stderr.write('*************    Return array before join = %s\n' % ret_array)
+        ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.packet.length)
         if len(ret_array) != packet.length:
             print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), packet.length)
 
@@ -552,7 +542,7 @@ class Replayer(object):
     def write_to_device(self, packet, ep):
         numbytes = 0  
         if packet.data:
-           numbytes = ep.write(packet.data)
+            numbytes = ep.write(packet.data)
         else:
             if self.debug:
                 print 'Packet data is empty.  No submission data to send.'
@@ -573,7 +563,7 @@ class Replayer(object):
             try:
                 ret_array = ep.read(packet.length, TIMEOUT)
             except usb.core.USBError as e:
-                print e
+                print 'In read_from_device ', e
 
             #ret_array = self.device.read(ep, packet.length,  self.logical_iface, TIMEOUT)
             if self.debug:
@@ -600,27 +590,27 @@ class Replayer(object):
         # Every submission or setup packet should have a callback?
         if self.debug:
             print 'In send_usb_packet: this is a submission packet for urb id = ', packet.urb
-        if packet.urb not in self.urbs:
-            if self.debug:
-                print 'Appending 0x%x to urb list' % packet.urb
-            self.urbs.append(packet.urb)
-            if self.debug:
-                print 'Current urbs = ', self.urbs
+        #if packet.urb not in self.urbs:
+        if self.debug:
+            print 'Appending 0x%x to urb list' % packet.urb
+        self.urbs.append(packet.urb)
+        if self.debug:
+            print 'Current urbs = ', self.urbs
 
-            # OUT means write bytes from host to device.
-            #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
-            if packet.epnum & 0x80:
-                self.read_from_device(packet, ep)
-            else:
-                self.write_to_device(packet, ep)
+        # OUT means write bytes from host to device.
+        #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
+        if packet.epnum & 0x80:
+            self.read_from_device(packet, ep)
+        else:
+            self.write_to_device(packet, ep)
 
 
-            # IN means read bytes from device to host.
-            #else:
-                #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN: 
-            #    self.read_from_device(packet)
+        # IN means read bytes from device to host.
         #else:
-        #    print 'In send_submission_packet, endpoint is None'
+            #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN: 
+                #    self.read_from_device(packet)
+            #else:
+            #    print 'In send_submission_packet, endpoint is None'
 
 
 
