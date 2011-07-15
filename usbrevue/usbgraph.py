@@ -60,6 +60,7 @@ class ByteModel(QAbstractTableModel):
                     self.cb_checked.emit(col)
                 else:
                     self.cb_states[col] = 0
+                    self.cb_unchecked.emit(col)
             return True
         return False
 
@@ -154,19 +155,12 @@ class BytePlot(Qwt.QwtPlot):
 
         self.replot()
 
-
     def cb_checked(self, column):
         self.curves[column]= ByteCurve("Byte " + str(column))
         self.curves[column].attach(self)
-        """
-        l = len(bytes[column])
-        if l > self.x_range:
-            self.curves[column].setData(ByteData(range(l)[l-self.x_range:l], bytes[column][l-self.x_range:1], mask[l-self.x_range:l]))
-            self.setAxisScale(2, l-self.x_range, l)
-        else:
-            self.curves[column].setData(ByteData(range(l)[:self.x_range], bytes[column][:self.x_range], mask[:self.x_range]))
-        """
 
+    def cb_unchecked(self, column):
+        self.curves[column].detach()
 
 class ByteData(Qwt.QwtArrayData):
     def __init__(self, x, y, mask):
