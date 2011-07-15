@@ -141,16 +141,15 @@ class BytePlot(Qwt.QwtPlot):
                 scaleDraw.enableComponent(Qwt.QwtAbstractScaleDraw.Backbone, False)
 
     def row_added(self):
-        """
-        mask = [c >= 0 for c in bytes[1]]
         l = len(bytes[1])
-        if l > self.x_range:
-            l = len(bytes[1])
-            self.curve.setData(ByteData(range(l)[l-self.x_range:l], bytes[1][l-self.x_range:l], mask[l-self.x_range:l]))
-            self.setAxisScale(2, l-self.x_range, l)
-        else:
-            self.curve.setData(ByteData(range(l)[:self.x_range], bytes[1][:self.x_range], mask[:self.x_range]))
-        """
+        for c in range(len(self.curves)):
+            mask = [j >= 0 for j in bytes[c]]
+            if l > self.x_range:
+                self.curve.setData(ByteData(range(l)[l-self.x_range:l], bytes[c][l-self.x_range:l], mask[l-self.x_range:l]))
+                self.setAxisScale(2, l-self.x_range, l)
+            else:
+                self.curve.setData(ByteData(range(l)[:self.x_range], bytes[c][:self.x_range], mask[:self.x_range]))
+
         self.replot()
 
 
@@ -159,13 +158,14 @@ class BytePlot(Qwt.QwtPlot):
             for i in range(column - len(self.curves) + 1):
                 self.curves.append(ByteCurve("test byte"))
                 self.curves[-1].attach(self)
-        mask = [c >= 0 for c in bytes[column]]
+        """
         l = len(bytes[column])
         if l > self.x_range:
             self.curves[column].setData(ByteData(range(l)[l-self.x_range:l], bytes[column][l-self.x_range:1], mask[l-self.x_range:l]))
             self.setAxisScale(2, l-self.x_range, l)
         else:
             self.curves[column].setData(ByteData(range(l)[:self.x_range], bytes[column][:self.x_range], mask[:self.x_range]))
+        """
 
 
 class ByteData(Qwt.QwtArrayData):
