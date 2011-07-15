@@ -14,6 +14,7 @@ class ByteModel(QAbstractTableModel):
     bytes_added = pyqtSignal()
     row_added = pyqtSignal()
     col_added = pyqtSignal()
+    cb_checked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         QAbstractTableModel.__init__(self, parent)
@@ -36,7 +37,9 @@ class ByteModel(QAbstractTableModel):
         val = bytes[col][row-1]
 
         if role == Qt.Qt.DisplayRole:
-            if isinstance(val, str):
+            if row == 0:
+                return QVariant()
+            elif isinstance(val, str):
                 return val
             else:
                 if val == -1:
@@ -54,6 +57,7 @@ class ByteModel(QAbstractTableModel):
             if row == 0:
                 if self.cb_states[col] == 0:
                     self.cb_states[col] = 2
+                    self.cb_checked.emit(col)
                 else:
                     self.cb_states[col] = 0
             return True
@@ -102,41 +106,7 @@ class ByteModel(QAbstractTableModel):
                 offset += 1
             self.endInsertRows()
             self.row_added.emit()
-            self.bytes_added.emit()
 
-
-class ByteDelegate(QItemDelegate):
-    def __init__(self, parent=None, *args):
-        QItemDelegate.__init__(self, parent, *args)
-
-    def paint(self, painter, option, index):
-            QItemDelegate.paint(self, painter, option, index)
-
-    def createEditor(self, parent, option, index):
-        if index.isValid() and index.column() == 0:
-            return QCheckBox(parent)
-        else:
-            return QItemDelegate.createEditor(self, parent, option, index)
-
-    def setEditorData(self, editor, index):
-        if index.isValid() and index.column() == 0:
-            value = index.model().data(index, Qt.Qt.DisplayRole)
-        else:
-            QItemDelegate.setEditorData(self, editor, index)
-
-    def setModelData(self, editor, model, index):
-        if index.isValid() and index.column() == 0:
-            self.cb = QCheckBox(editor)
-            if (self.cb.checkState() == Qt.Qt.Checked):
-                self.value = 'Y'
-            else:
-                self.value = 'N'
-        else:
-            QItemDelegate.setModelData(self, editor, model, index)
-
-    def updateEditorGeometry(self, editor, option, index):
-        QItemDelegate.updateEditorGeometry(self, editor, option, index)
-        
 
 class ByteView(QTableView):
     def __init__(self, parent=None):
@@ -157,6 +127,7 @@ class BytePlot(Qwt.QwtPlot):
 
         self.curve = ByteCurve("Byte 1")
         self.curve.attach(self)
+        self.curves = list()
 
     def alignScales(self):
         self.canvas().setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Plain)
@@ -169,7 +140,8 @@ class BytePlot(Qwt.QwtPlot):
             if scaleDraw:
                 scaleDraw.enableComponent(Qwt.QwtAbstractScaleDraw.Backbone, False)
 
-    def bytes_added(self):
+    def row_added(self):
+        """
         mask = [c >= 0 for c in bytes[1]]
         l = len(bytes[1])
         if l > self.x_range:
@@ -178,8 +150,22 @@ class BytePlot(Qwt.QwtPlot):
             self.setAxisScale(2, l-self.x_range, l)
         else:
             self.curve.setData(ByteData(range(l)[:self.x_range], bytes[1][:self.x_range], mask[:self.x_range]))
-
+        """
         self.replot()
+
+
+    def cb_checked(self, column):
+        if len(self.curves) < column:
+            for i in range(column - len(self.curves) + 1):
+                self.curves.append(ByteCurve("test byte"))
+                self.curves[-1].attach(self)
+        mask = [c >= 0 for c in bytes[column]]
+        l = len(bytes[column])
+        if l > self.x_range:
+            self.curves[column].setData(ByteData(range(l)[l-self.x_range:l], bytes[column][l-self.x_range:1], mask[l-self.x_range:l]))
+            self.setAxisScale(2, l-self.x_range, l)
+        else:
+            self.curves[column].setData(ByteData(range(l)[:self.x_range], bytes[column][:self.x_range], mask[:self.x_range]))
 
 
 class ByteData(Qwt.QwtArrayData):
@@ -209,17 +195,20 @@ class ByteCurve(Qwt.QwtPlotCurve):
         Qwt.QwtPlotCurve.__init__(self, title)
 
     def draw(self, painter, xMap, yMap, rect):
-        indices = np.arange(self.data().size())[self.data().mask()]
-        fs = np.array(indices)
-        fs[1:] -= indices[:-1]
-        fs[0] = 2
-        fs = indices[fs > 1]
-        ls = np.array(indices)
-        ls[:-1] -= indices[1:]
-        ls[-1] = -2
-        ls = indices[ls < -1]
-        for first, last in zip(fs, ls):
-            Qwt.QwtPlotCurve.drawFromTo(self, painter, xMap, yMap, first, last)
+        try:
+            indices = np.arange(self.data().size())[self.data().mask()]
+            fs = np.array(indices)
+            fs[1:] -= indices[:-1]
+            fs[0] = 2
+            fs = indices[fs > 1]
+            ls = np.array(indices)
+            ls[:-1] -= indices[1:]
+            ls[-1] = -2
+            ls = indices[ls < -1]
+            for first, last in zip(fs, ls):
+                Qwt.QwtPlotCurve.drawFromTo(self, painter, xMap, yMap, first, last)
+        except AttributeError:
+            pass
 
 class USBGraph(QApplication):
     def __init__(self, argv):
@@ -229,13 +218,12 @@ class USBGraph(QApplication):
 
         self.bytemodel = ByteModel()
         self.byteview = ByteView()
-        self.bytedelegate = ByteDelegate()
         self.byteview.setModel(self.bytemodel)
-        self.byteview.setItemDelegate(self.bytedelegate)
         self.byteplot = BytePlot()
 
-        self.bytemodel.bytes_added.connect(self.bytes_added)
+        self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
+        self.bytemodel.cb_checked.connect(self.byteplot.cb_checked)
 
         self.hb = QHBoxLayout()
         self.hb.addWidget(self.byteview)
