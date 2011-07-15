@@ -11,10 +11,10 @@ import numpy as np
 
 
 class ByteModel(QAbstractTableModel):
-    bytes_added = pyqtSignal()
     row_added = pyqtSignal()
     col_added = pyqtSignal()
     cb_checked = pyqtSignal(int)
+    cb_unchecked = pyqtSignal(int)
 
     def __init__(self, parent=None):
         QAbstractTableModel.__init__(self, parent)
@@ -125,9 +125,11 @@ class BytePlot(Qwt.QwtPlot):
 
         self.x_range = 200
 
-        self.curve = ByteCurve("Byte 1")
-        self.curve.attach(self)
-        self.curves = list()
+        #self.curve = ByteCurve("Byte 1")
+        #self.curve.attach(self)
+        self.curves = {}
+
+        self.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.BottomLegend)
 
     def alignScales(self):
         self.canvas().setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Plain)
@@ -142,22 +144,20 @@ class BytePlot(Qwt.QwtPlot):
 
     def row_added(self):
         l = len(bytes[1])
-        for c in range(len(self.curves)):
+        for c in self.curves:
             mask = [j >= 0 for j in bytes[c]]
             if l > self.x_range:
-                self.curve.setData(ByteData(range(l)[l-self.x_range:l], bytes[c][l-self.x_range:l], mask[l-self.x_range:l]))
+                self.curves[c].setData(ByteData(range(l)[l-self.x_range:l], bytes[c][l-self.x_range:l], mask[l-self.x_range:l]))
                 self.setAxisScale(2, l-self.x_range, l)
             else:
-                self.curve.setData(ByteData(range(l)[:self.x_range], bytes[c][:self.x_range], mask[:self.x_range]))
+                self.curves[c].setData(ByteData(range(l)[:self.x_range], bytes[c][:self.x_range], mask[:self.x_range]))
 
         self.replot()
 
 
     def cb_checked(self, column):
-        if len(self.curves) < column:
-            for i in range(column - len(self.curves) + 1):
-                self.curves.append(ByteCurve("test byte"))
-                self.curves[-1].attach(self)
+        self.curves[column]= ByteCurve("Byte " + str(column))
+        self.curves[column].attach(self)
         """
         l = len(bytes[column])
         if l > self.x_range:
@@ -180,7 +180,7 @@ class ByteData(Qwt.QwtArrayData):
 
     def mask(self):
         return self.__mask
-
+    """
     def boundingRect(self):
         xmax = self.__x[self.__mask].max()
         xmin = self.__x[self.__mask].min()
@@ -188,7 +188,7 @@ class ByteData(Qwt.QwtArrayData):
         ymin = self.__y[self.__mask].min()
 
         return Qt.QRectF(xmin, ymin, xmax-xmin, ymax-ymin)
-
+    """
 
 class ByteCurve(Qwt.QwtPlotCurve):
     def __init__(self, title=None):
