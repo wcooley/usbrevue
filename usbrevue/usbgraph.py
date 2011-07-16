@@ -5,7 +5,7 @@ from usbview import PcapThread
 from usbrevue import Packet
 from PyQt4 import Qt
 from PyQt4.QtGui import *
-from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QByteArray, pyqtSignal
+from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QByteArray, pyqtSignal, QTimer
 import PyQt4.Qwt5 as Qwt
 import numpy as np
 import random
@@ -114,8 +114,16 @@ class ByteView(QTableView):
     def __init__(self, parent=None):
         QTableView.__init__(self, parent)
 
+        self.autoscroll_timer = QTimer(self)
+        self.autoscroll_timer.setSingleShot(True)
+        self.autoscroll_timer.timeout.connect(self.scrollToBottom)
+
     def col_added(self):
         self.resizeColumnsToContents()
+
+    def row_added(self):
+        if not self.autoscroll_timer.isActive():
+            self.autoscroll_timer.start(50)
 
 
 class BytePlot(Qwt.QwtPlot):
@@ -237,6 +245,7 @@ class USBGraph(QApplication):
         self.byteplot = BytePlot()
 
         self.bytemodel.row_added.connect(self.byteplot.row_added)
+        self.bytemodel.row_added.connect(self.byteview.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
         self.bytemodel.cb_checked.connect(self.byteplot.cb_checked)
         self.bytemodel.cb_unchecked.connect(self.byteplot.cb_unchecked)
