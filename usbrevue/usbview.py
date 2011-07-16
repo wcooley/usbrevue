@@ -3,6 +3,7 @@
 import sys
 import pcapy
 from usbrevue import Packet, USBMON_TRANSFER_TYPE
+import codegen
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
                          QPersistentModelIndex, QTimer, QString
@@ -239,6 +240,8 @@ class PacketView(QTreeView):
         self.pause_toggle = QAction("Pause capture", self)
         self.pause_toggle.setCheckable(True)
         self.pause_toggle.setChecked(False)
+        self.copy_as_code_act = QAction("Copy as libusb code", self)
+        self.copy_as_code_act.triggered.connect(self.copy_as_code)
         self.delegate = HexEditDelegate()
         self.setItemDelegateForColumn(DATA_COL, self.delegate)
         self.autoscroll_timer = QTimer(self)
@@ -248,6 +251,7 @@ class PacketView(QTreeView):
     def contextMenuEvent(self, event):
         menu = QMenu()
         menu.addAction(self.dump_selected_act)
+        menu.addAction(self.copy_as_code_act)
         menu.addSeparator()
         menu.addAction(self.remove_selected_act)
         menu.addAction(self.remove_all_act)
@@ -257,6 +261,27 @@ class PacketView(QTreeView):
         menu.addSeparator()
         menu.addAction(self.pause_toggle)
         menu.exec_(event.globalPos())
+
+    def copy_as_code(self):
+        selected = self.selectionModel().selectedRows()
+        selected.sort(cmp=lambda x,y: cmp(x.row(), y.row()))
+        s = ''
+        deviceset = set()
+        for idx in selected:
+            pack = self.model().data(idx, Qt.UserRole).toPyObject()
+            s += codegen.packet_to_libusb_code(pack)
+            deviceset.add((pack.busnum, pack.devnum))
+        QApplication.clipboard().setText(s)
+        if len(deviceset) > 1:
+            msgbox = QMessageBox()
+            msgbox.setText("Warning: code generated for multiple devices")
+            msgbox.setInformativeText("This is probably not what you want. Try filtering by device and/or bus number.")
+            detailtext = 'Devices in selection:\n'
+            for devtuple in deviceset:
+                detailtext += 'Bus %d, device %d\n' % devtuple
+            msgbox.setDetailedText(detailtext)
+            msgbox.setIcon(QMessageBox.Warning)
+            msgbox.exec_()
 
     def remove_selected(self):
         rows = self.selectionModel().selectedRows()
@@ -274,7 +299,7 @@ class PacketView(QTreeView):
 
         for row in xrange(start, end+1):
             idx = self.model().index(row, 0, parent)
-            pack = self.model().data(idx, Qt.UserRole).toPyObject();
+            pack = self.model().data(idx, Qt.UserRole).toPyObject()
             if isinstance(pack, QString):
                 self.setFirstColumnSpanned(row, parent, True)
 
