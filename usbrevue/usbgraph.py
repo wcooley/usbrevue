@@ -8,6 +8,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QByteArray, pyqtSignal
 import PyQt4.Qwt5 as Qwt
 import numpy as np
+import random
 
 
 class ByteModel(QAbstractTableModel):
@@ -126,6 +127,8 @@ class BytePlot(Qwt.QwtPlot):
 
         self.x_range = 200
 
+        random.seed()
+
         #self.curve = ByteCurve("Byte 1")
         #self.curve.attach(self)
         self.curves = {}
@@ -144,7 +147,7 @@ class BytePlot(Qwt.QwtPlot):
                 scaleDraw.enableComponent(Qwt.QwtAbstractScaleDraw.Backbone, False)
 
     def row_added(self):
-        l = len(bytes[1])
+        l = len(bytes[0])
         for c in self.curves:
             mask = [j >= 0 for j in bytes[c]]
             if l > self.x_range:
@@ -156,8 +159,24 @@ class BytePlot(Qwt.QwtPlot):
         self.replot()
 
     def cb_checked(self, column):
-        self.curves[column]= ByteCurve("Byte " + str(column))
+        if column not in self.curves:
+            l = len(bytes[0])
+            mask = [j >= 0 for j in bytes[column]]
+            self.curves[column]= ByteCurve("Byte " + str(column))
+            if l > self.x_range:
+                self.curves[column].setData(ByteData(range(l)[l-self.x_range:l], bytes[column][l-self.x_range:l], mask[l-self.x_range:l]))
+                self.setAxisScale(2, l-self.x_range, l)
+            else:
+                self.curves[column].setData(ByteData(range(l)[:self.x_range], bytes[column][:self.x_range], mask[:self.x_range]))
+
+            color = QColor()
+            color.setHsv(random.randint(0,255), random.randint(0,255), random.randint(0,255))
+            self.curves[column].setPen(QPen(QBrush(color), 2))
+            self.curves[column].setStyle(Qwt.QwtPlotCurve.Dots)
+
         self.curves[column].attach(self)
+
+        self.replot()
 
     def cb_unchecked(self, column):
         self.curves[column].detach()
