@@ -9,6 +9,7 @@ from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QB
 import PyQt4.Qwt5 as Qwt
 import numpy as np
 import random
+import re
 
 
 class ByteModel(QAbstractTableModel):
@@ -200,6 +201,14 @@ class BytePlot(Qwt.QwtPlot):
 
         self.replot()
 
+    def new_custom_bytes(self, string):
+        # parse byte definitions
+        byte_def_strings = [str(s).strip() for s in re.split(',', string)]
+        for d in byte_def_strings:
+            match = re.search('\[(\d+)\]', d)
+            print match.group(1)
+
+
 class ByteData(Qwt.QwtArrayData):
     def __init__(self, x, y, mask):
         Qwt.QwtArrayData.__init__(self, x, y)
@@ -243,6 +252,26 @@ class ByteCurve(Qwt.QwtPlotCurve):
         except AttributeError:
             pass
 
+
+class ByteValWidget(QWidget):
+    byte_vals_changed = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent)
+        self.y_axis_label = QLabel("y = ")
+        self.y_axis_edit = QLineEdit()
+
+        self.hb = QHBoxLayout()
+        self.hb.addWidget(self.y_axis_label)
+        self.hb.addWidget(self.y_axis_edit)
+        self.setLayout(self.hb)
+
+        self.y_axis_edit.returnPressed.connect(self.update_byte_vals)
+
+    def update_byte_vals(self):
+        self.byte_vals_changed.emit(str(self.y_axis_edit.text()))
+
+
 class USBGraph(QApplication):
     def __init__(self, argv):
         QApplication.__init__(self, argv)
@@ -252,6 +281,7 @@ class USBGraph(QApplication):
         self.bytemodel = ByteModel()
         self.byteview = ByteView()
         self.byteview.setModel(self.bytemodel)
+        self.bytevalwidget = ByteValWidget()
         self.byteplot = BytePlot()
 
         self.bytemodel.row_added.connect(self.byteplot.row_added)
@@ -260,8 +290,14 @@ class USBGraph(QApplication):
         self.bytemodel.cb_checked.connect(self.byteplot.cb_checked)
         self.bytemodel.cb_unchecked.connect(self.byteplot.cb_unchecked)
 
+        self.bytevalwidget.byte_vals_changed.connect(self.byteplot.new_custom_bytes)
+
+        self.vb = QVBoxLayout()
+        self.vb.addWidget(self.bytevalwidget)
+        self.vb.addWidget(self.byteview)
+
         self.hb = QHBoxLayout()
-        self.hb.addWidget(self.byteview)
+        self.hb.addItem(self.vb)
         self.hb.addWidget(self.byteplot)
 
         self.w.setLayout(self.hb)
