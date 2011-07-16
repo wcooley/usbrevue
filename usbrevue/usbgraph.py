@@ -35,10 +35,10 @@ class ByteModel(QAbstractTableModel):
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
-        val = bytes[col][row-1]
+        val = bytes[col][row]
 
         if role == Qt.Qt.DisplayRole:
-            if row == 0:
+            if row == len(bytes[0]) - 1:
                 return QVariant()
             elif isinstance(val, str):
                 return val
@@ -72,7 +72,7 @@ class ByteModel(QAbstractTableModel):
         return QVariant()
 
     def flags(self, index):
-        if index.row() == 0:
+        if index.row() == len(bytes[0]) - 1:
             return Qt.Qt.ItemIsUserCheckable | Qt.Qt.ItemIsEnabled
         else:
             return Qt.Qt.ItemIsEnabled | Qt.Qt.ItemIsSelectable
