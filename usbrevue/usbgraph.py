@@ -38,7 +38,7 @@ class ByteModel(QAbstractTableModel):
         val = bytes[col][row]
 
         if role == Qt.Qt.DisplayRole:
-            if row == len(bytes[0]) - 1:
+            if row == 0:
                 return QVariant()
             elif isinstance(val, str):
                 return val
@@ -72,7 +72,7 @@ class ByteModel(QAbstractTableModel):
         return QVariant()
 
     def flags(self, index):
-        if index.row() == len(bytes[0]) - 1:
+        if index.row() == 0:
             return Qt.Qt.ItemIsUserCheckable | Qt.Qt.ItemIsEnabled
         else:
             return Qt.Qt.ItemIsEnabled | Qt.Qt.ItemIsSelectable
@@ -114,15 +114,24 @@ class ByteView(QTableView):
     def __init__(self, parent=None):
         QTableView.__init__(self, parent)
 
+        self.autoscroll_toggle = QAction("Autoscroll", self)
+        self.autoscroll_toggle.setCheckable(True)
+        self.autoscroll_toggle.setChecked(False)
+
         self.autoscroll_timer = QTimer(self)
         self.autoscroll_timer.setSingleShot(True)
         self.autoscroll_timer.timeout.connect(self.scrollToBottom)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu()
+        menu.addAction(self.autoscroll_toggle)
+        menu.exec_(event.globalPos())
 
     def col_added(self):
         self.resizeColumnsToContents()
 
     def row_added(self):
-        if not self.autoscroll_timer.isActive():
+        if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
             self.autoscroll_timer.start(50)
 
 
@@ -220,16 +229,17 @@ class ByteCurve(Qwt.QwtPlotCurve):
     def draw(self, painter, xMap, yMap, rect):
         try:
             indices = np.arange(self.data().size())[self.data().mask()]
-            fs = np.array(indices)
-            fs[1:] -= indices[:-1]
-            fs[0] = 2
-            fs = indices[fs > 1]
-            ls = np.array(indices)
-            ls[:-1] -= indices[1:]
-            ls[-1] = -2
-            ls = indices[ls < -1]
-            for first, last in zip(fs, ls):
-                Qwt.QwtPlotCurve.drawFromTo(self, painter, xMap, yMap, first, last)
+            if len(indices > 0):
+                fs = np.array(indices)
+                fs[1:] -= indices[:-1]
+                fs[0] = 2
+                fs = indices[fs > 1]
+                ls = np.array(indices)
+                ls[:-1] -= indices[1:]
+                ls[-1] = -2
+                ls = indices[ls < -1]
+                for first, last in zip(fs, ls):
+                    Qwt.QwtPlotCurve.drawFromTo(self, painter, xMap, yMap, first, last)
         except AttributeError:
             pass
 
