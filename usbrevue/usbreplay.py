@@ -9,7 +9,6 @@ import optparse
 import traceback
 import time
 import math
-import select
 import signal
 #from optparse import OptionParser
 
@@ -41,6 +40,38 @@ EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3
                         # (Transfer Type, Synch Type, Usage Type)
 BUS = 0x6
 DEVICE = 0x3
+
+
+
+class Timing(object):
+    def __init__(self, max_wait=5, debug=False):
+        self.prev_ts = None
+        self.max_wait = max_wait
+        self.debug = debug
+
+    def wait_relative(self, ts_sec, ts_usec):
+        """
+        On first call, returns instantly. On subsequent calls, waits for the
+        difference between this call's timestamp and the previous call's
+        timestamp.
+        """
+        ts = ts_sec + ts_usec/1e6
+        if self.prev_ts is not None:
+            self.sleep(ts - self.prev_ts)
+        self.prev_ts = ts
+
+    def sleep(self, dur):
+        """
+        Sleep for dur seconds. Returns instantly if dur < 0, and won't
+        sleep for longer than self.max_wait. 
+        """
+        now = time.time()
+        until = now + min(dur, self.max_wait)
+        if self.debug:
+            print "waiting for %s" % (until - now)
+        while now < until:
+            time.sleep(until-now)
+            now = time.time()
 
 
 
@@ -85,6 +116,8 @@ class Replayer(object):
         self.ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
         if not self.ep:
             raise ValueError('Could not find USB Device with endpoint address', self.ep_address)
+
+        self.timer = Timing(debug=options.debug)
 
 
 
@@ -376,9 +409,6 @@ class Replayer(object):
         Run the replayer loop.  The loop will get each consecutive pcap 
         packet and replay it as nearly as possible.
         """
-        inputs = []
-        outputs = []
-        last_time = 0
         MAX_LOOPS = 10
         loops = 0
         if self.debug:
@@ -415,21 +445,15 @@ class Replayer(object):
 
                 # Wait for awhile before sending next usb packet
                 print packet
-                this_time = packet.ts_usec/1000000 - last_time
-                print 'Sleeping 1 seconds' 
-                time.sleep(1)
-                #select.select(inputs, outputs, inputs, timeout)
-                select.select(inputs, outputs, inputs, this_time)
+                self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
                 self.send_usb_packet(packet)
                 #if loops > MAX_LOOPS:
                     #raise Exception
-                last_time = this_time 
             except Exception:
                 sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
-                #self.reset_device()
                 traceback.print_exc()
-                sys.exit(1)
-
+                break
+        self.reset_device()
 
 
     def keyboard_handler(self, signum, frame):
@@ -533,7 +557,7 @@ class Replayer(object):
         # If no data payload then numbytes should be 0
         if self.debug:
             print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
-        ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.packet.length)
+        ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.wLength)
         if len(ret_array) != packet.length:
             print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), packet.length)
 
