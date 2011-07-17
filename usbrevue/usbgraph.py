@@ -113,7 +113,15 @@ class ByteModel(QAbstractTableModel):
 
             for cb in custom_bytes:
                 cb_run = re.sub(r'\[(\d+)\]', r'bytes[\1][-1]', cb)
-                custom_bytes[cb].append(eval(cb_run))
+
+                composite_bytes = re.findall(r'bytes\[(\d+)\]', cb_run)
+
+                if not -1 in [bytes[int(c)][-1] for c in composite_bytes]:
+                    custom_bytes[cb].append(eval(cb_run))
+                else:
+                    custom_bytes[cb].append(-1)
+                    
+                print len(bytes[0]), len(custom_bytes[cb])
 
 
 class ByteView(QTableView):
@@ -203,7 +211,6 @@ class BytePlot(Qwt.QwtPlot):
         self.replot()
 
     def new_custom_bytes(self, string):
-        # parse byte definitions
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
         for cc in self.custom_curves:
             if cc not in byte_def_strings:
@@ -212,15 +219,25 @@ class BytePlot(Qwt.QwtPlot):
         for d in byte_def_strings:
             if not len(d) == 0:
                 d_run = re.sub(r'\[(\d+)\]', r'bytes[\1][pos]', d)
+
+                # find out what byte values are being used
+                composite_bytes = re.findall(r'bytes\[(\d+)\]', d_run)
+
                 if d not in self.custom_curves:
                     self.custom_curves[d] = ByteCurve(d)
                     custom_bytes[d] = list()
                     self.custom_curves[d].attach(self)
                     for pos in range(len(bytes[0])):
-                        custom_bytes[d].append(eval(d_run))
+                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                            custom_bytes[d].append(eval(d_run))
+                        else:
+                            custom_bytes[d].append(-1)
                 else:
                     for pos in range(len(custom_bytes[d]), len(bytes[0])):
-                        custom_bytes[d].append(eval(d_run))
+                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                            custom_bytes[d].append(eval(d_run))
+                        else:
+                            custom_bytes[d].append(-1)
 
                 mask = [j >= 0 for j in custom_bytes[d]]
                 self.set_curve_data(len(bytes[0]), self.custom_curves[d], range(len(bytes[0])), custom_bytes[d], mask)
