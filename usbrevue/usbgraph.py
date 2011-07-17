@@ -26,9 +26,9 @@ class ByteModel(QAbstractTableModel):
 
     def rowCount(self, parent = QModelIndex()):
         if len(bytes) > 0:
-            return len(bytes[0])
+            return len(bytes[0])+1
         else:
-            return 0
+            return 1
 
     def columnCount(self, parent = QModelIndex()):
         return len(bytes)
@@ -36,7 +36,8 @@ class ByteModel(QAbstractTableModel):
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
-        val = bytes[col][row]
+        if row != 0:
+            val = bytes[col][row-1]
 
         if role == Qt.Qt.DisplayRole:
             if row == 0:
@@ -150,6 +151,7 @@ class BytePlot(Qwt.QwtPlot):
         #self.curve = ByteCurve("Byte 1")
         #self.curve.attach(self)
         self.curves = {}
+        self.custom_curves = {}
 
         self.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.BottomLegend)
 
@@ -174,6 +176,13 @@ class BytePlot(Qwt.QwtPlot):
             else:
                 self.curves[c].setData(ByteData(range(l)[:self.x_range], bytes[c][:self.x_range], mask[:self.x_range]))
 
+        for c in self.custom_curves:
+            mask = [j >= 0 for j in bytes[c]]
+            if l > self.x_range:
+                self.custom_curves[c][0].setData(ByteData(range(l)[l-self.x_range:l], self.custom_curves[c][1][l-self.x_range:l], mask[l-self.x_range:l]))
+            else:
+                self.custom_curves[c][0].setData(ByteData(range(l)[:self.x_range], self.custom_curves[c][1][:self.x_range], mask[:self.x_range]))
+
         self.replot()
 
     def cb_checked(self, column):
@@ -181,12 +190,14 @@ class BytePlot(Qwt.QwtPlot):
             l = len(bytes[0])
             mask = [j >= 0 for j in bytes[column]]
             self.curves[column]= ByteCurve("Byte " + str(column))
+            self.set_curve_data(l, self.curves[column], range(l), bytes[column], mask)
+            """
             if l > self.x_range:
                 self.curves[column].setData(ByteData(range(l)[l-self.x_range:l], bytes[column][l-self.x_range:l], mask[l-self.x_range:l]))
                 self.setAxisScale(2, l-self.x_range, l)
             else:
                 self.curves[column].setData(ByteData(range(l)[:self.x_range], bytes[column][:self.x_range], mask[:self.x_range]))
-
+            """
             color = QColor()
             color.setHsv(random.randint(0,255), random.randint(0,255), random.randint(0,255))
             self.curves[column].setPen(QPen(QBrush(color), 2))
@@ -205,8 +216,17 @@ class BytePlot(Qwt.QwtPlot):
         # parse byte definitions
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
         for d in byte_def_strings:
-            match = re.search('\[(\d+)\]', d)
-            print match.group(1)
+            d_run = re.sub(r'\[(\d+)\]', r'bytes[\1][pos]', d)
+            self.custom_curves[d_run] = (ByteCurve(d), list())
+            for pos in range(len(bytes[0])):
+                self.custom_curves[d_run][1].append(eval(d_run))
+
+    def set_curve_data(self, length, curve, x, y, mask):
+        if length > self.x_range:
+            curve.setData(ByteData(x[length-self.x_range:length], y[length-self.x_range:length], mask[length-self.x_range:length]))
+            self.setAxisScale(2, length-self.x_range, length)
+        else:
+            curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
 
 
 class ByteData(Qwt.QwtArrayData):
