@@ -404,7 +404,11 @@ class USBGraph(QApplication):
         self.plot_range.setTickInterval(50)
         self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
         self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
-        self.graphvb.addWidget(self.plot_range)
+        self.plot_range_labels = QHBoxLayout()
+        self.plot_range_labels.addWidget(QLabel('10'))
+        self.plot_range_labels.addWidget(self.plot_range)
+        self.plot_range_labels.addWidget(QLabel('1000'))
+        self.graphvb.addItem(self.plot_range_labels)
 
         self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
                                             Qwt.QwtPlot.yLeft,
