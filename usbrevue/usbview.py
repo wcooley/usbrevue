@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+from optparse import OptionParser
 import pcapy
 from usbrevue import Packet, USBMON_TRANSFER_TYPE
 import codegen
@@ -17,16 +18,18 @@ class PcapThread(QThread):
     eof = pyqtSignal()
     dump_opened = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, source='-', dest='-'):
         QThread.__init__(self)
+        self.source = source
+        self.dest = dest
 
     def run(self):
-        if sys.stdin.isatty():
+        if self.source == '-' and sys.stdin.isatty():
             return
-        pcap = pcapy.open_offline('-')
+        pcap = pcapy.open_offline(self.source)
         # don't output anything unless we're being piped/redirected
-        if not sys.stdout.isatty():
-            out = pcap.dump_open('-')
+        if not (self.dest == '-' and sys.stdout.isatty()):
+            out = pcap.dump_open(self.dest)
             sys.stdout.flush()
             self.dump_opened.emit(out)
 
@@ -381,7 +384,7 @@ data:\tA list of transmitted bytes of data"""
 
 
 class USBView(QApplication):
-    def __init__(self, argv):
+    def __init__(self, argv, options, args):
         QApplication.__init__(self, argv)
         self.w = QWidget()
         self.w.resize(800, 600)
@@ -415,13 +418,16 @@ class USBView(QApplication):
         self.w.setLayout(self.vb)
         self.w.show()
 
-        self.pcapthread = PcapThread()
+        if sys.stdin.isatty() and len(args) > 0:
+            self.pcapthread = PcapThread(source=args[0])
+        else:
+            self.pcapthread = PcapThread()
         self.pause_toggled(False)
         self.pcapthread.dump_opened.connect(self.dump_opened)
         self.pcapthread.start()
 
         self.dumper = None
-        self.passthru = True
+        self.passthru_toggled(options.passthru)
         self.filterexpr = None
 
     def new_annotation(self):
@@ -434,6 +440,8 @@ class USBView(QApplication):
 
     def passthru_toggled(self, state):
         self.passthru = state
+        if self.packetview.passthru_toggle.isChecked() != state:
+            self.packetview.passthru_toggle.setChecked(state)
 
     def pause_toggled(self, state):
         if state:
@@ -467,6 +475,10 @@ class USBView(QApplication):
 
 
 if __name__ == '__main__':
-    app = USBView(sys.argv)
+    parser = OptionParser()
+    parser.add_option("-p", "--passthru", default=False, action="store_true",
+            help="Start with passthru enabled.")
+    (options, args) = parser.parse_args()
+    app = USBView(sys.argv, options, args)
     sys.exit(app.exec_())
 
