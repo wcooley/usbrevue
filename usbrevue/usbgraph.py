@@ -121,7 +121,6 @@ class ByteModel(QAbstractTableModel):
                 else:
                     custom_bytes[cb].append(-1)
                     
-                print len(bytes[0]), len(custom_bytes[cb])
 
 
 class ByteView(QTableView):
@@ -147,6 +146,39 @@ class ByteView(QTableView):
     def row_added(self):
         if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
             self.autoscroll_timer.start(50)
+
+
+colors = [(0,255,255),
+          (0,0,0),
+          (0,0,255),
+          (138,43,226),
+          (165,42,42),
+          (95,158,160),
+          (127,255,0),
+          (210,105,30),
+          (255,127,80),
+          (100,149,237),
+          (0,255,255),
+          (0,0,139),
+          (0,139,139),
+          (184,134,11),
+          (0,100,0),
+          (189,183,107),
+          (139,9,139),
+          (85,107,47),
+          (255,140,0),
+          (153,50,204),
+          (139,0,0),
+          (233,150,122),
+          (143,188,143),
+          (72,61,139),
+          (47,79,79),
+          (0,206,209),
+          (148,0,211),
+          (255,20,147),
+          (178,34,34),
+          (34,139,34),
+          (218,165,32)]
 
 
 class BytePlot(Qwt.QwtPlot):
@@ -196,10 +228,10 @@ class BytePlot(Qwt.QwtPlot):
             self.curves[column]= ByteCurve("Byte " + str(column))
             self.set_curve_data(l, self.curves[column], range(l), bytes[column], mask)
 
-            color = QColor()
-            color.setHsv(random.randint(0,255), random.randint(0,255), random.randint(0,255))
-            self.curves[column].setPen(QPen(QBrush(color), 2))
-            self.curves[column].setStyle(Qwt.QwtPlotCurve.Dots)
+        r, g, b = colors.pop(random.randint(0, len(colors)-1))
+        color = QColor(r, g, b)
+        self.curves[column].setPen(QPen(QBrush(color), 2))
+        self.curves[column].setStyle(Qwt.QwtPlotCurve.Dots)
 
         self.curves[column].attach(self)
 
@@ -207,6 +239,7 @@ class BytePlot(Qwt.QwtPlot):
 
     def cb_unchecked(self, column):
         self.curves[column].detach()
+        colors.append(self.curves[column].pen().brush().color().getRgb()[:-1])
 
         self.replot()
 
@@ -215,6 +248,7 @@ class BytePlot(Qwt.QwtPlot):
         for cc in self.custom_curves:
             if cc not in byte_def_strings:
                 self.custom_curves[cc].detach()
+                colors.append(self.custom_curves[cc].pen().brush().color().getRgb()[:-1])
 
         for d in byte_def_strings:
             if not len(d) == 0:
@@ -241,6 +275,11 @@ class BytePlot(Qwt.QwtPlot):
 
                 mask = [j >= 0 for j in custom_bytes[d]]
                 self.set_curve_data(len(bytes[0]), self.custom_curves[d], range(len(bytes[0])), custom_bytes[d], mask)
+
+                r, g, b = colors.pop(random.randint(0, len(colors)-1))
+                color = QColor(r, g, b)
+                self.custom_curves[d].setPen(QPen(QBrush(color), 2))
+                self.custom_curves[d].setStyle(Qwt.QwtPlotCurve.Dots)
 
         self.replot()
 
@@ -273,6 +312,8 @@ class ByteData(Qwt.QwtArrayData):
 
         return Qt.QRectF(xmin, ymin, xmax-xmin, ymax-ymin)
     """
+
+
 
 class ByteCurve(Qwt.QwtPlotCurve):
     def __init__(self, title=None):
