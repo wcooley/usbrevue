@@ -13,6 +13,8 @@ import re
 
 
 class ByteModel(QAbstractTableModel):
+    """Qt Model for byte data."""
+
     row_added = pyqtSignal()
     col_added = pyqtSignal()
     cb_checked = pyqtSignal(int)
@@ -128,6 +130,8 @@ class ByteModel(QAbstractTableModel):
 
 
 class ByteView(QTableView):
+    """Byte table view."""
+
     def __init__(self, parent=None):
         QTableView.__init__(self, parent)
 
@@ -151,7 +155,7 @@ class ByteView(QTableView):
         if self.autoscroll_toggle.isChecked() and not self.autoscroll_timer.isActive():
             self.autoscroll_timer.start(50)
 
-
+# Acceptable colors to plot with
 colors = [(0,255,255),
           (0,0,0),
           (0,0,255),
@@ -186,6 +190,8 @@ colors = [(0,255,255),
 
 
 class BytePlot(Qwt.QwtPlot):
+    """Plot of selected byte values"""
+
     def __init__(self, *args):
         Qwt.QwtPlot.__init__(self, *args)
 
@@ -196,8 +202,6 @@ class BytePlot(Qwt.QwtPlot):
 
         random.seed()
 
-        #self.curve = ByteCurve("Byte 1")
-        #self.curve.attach(self)
         self.curves = {}
         self.custom_curves = {}
 
@@ -308,6 +312,8 @@ class BytePlot(Qwt.QwtPlot):
 
 
 class ByteScale(Qwt.QwtScaleDraw):
+    """Subclassed QwtScaleDraw so that y-axis labeled are displayed as hex"""
+
     def __init__(self):
         Qwt.QwtScaleDraw.__init__(self)
 
@@ -316,6 +322,8 @@ class ByteScale(Qwt.QwtScaleDraw):
 
 
 class ByteData(Qwt.QwtArrayData):
+    """Subclassed QwtArrayData with mask"""
+
     def __init__(self, x, y, mask):
         Qwt.QwtArrayData.__init__(self, x, y)
         self.__mask = np.asarray(mask, bool)
@@ -327,17 +335,11 @@ class ByteData(Qwt.QwtArrayData):
 
     def mask(self):
         return self.__mask
-    """
-    def boundingRect(self):
-        xmax = self.__x[self.__mask].max()
-        xmin = self.__x[self.__mask].min()
-        ymax = self.__y[self.__mask].max()
-        ymin = self.__y[self.__mask].min()
 
-        return Qt.QRectF(xmin, ymin, xmax-xmin, ymax-ymin)
-    """
 
 class ByteCurve(Qwt.QwtPlotCurve):
+    """Subclassed QwtPlotCurve so that data is masked"""
+
     def __init__(self, title=None):
         Qwt.QwtPlotCurve.__init__(self, title)
 
@@ -360,6 +362,8 @@ class ByteCurve(Qwt.QwtPlotCurve):
 
 
 class ByteValWidget(QWidget):
+    """Input area for the user to specify custom byte values."""
+
     byte_vals_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -454,19 +458,6 @@ class USBGraph(QApplication):
 
     def dump_opened(self, dumper):
         pass
-
-    def byte_picked(self, selection):
-        print 'selected'
-        print selection
-
-    def byte_appended(self, selection):
-        print 'appended'
-        print selection
-
-    def byte_moved(self, selection):
-        print 'moved'
-        print selection
-
 
 
 bytes = list()
