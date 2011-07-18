@@ -10,6 +10,7 @@ import traceback
 import time
 import math
 import signal
+from threading import Thread
 #from optparse import OptionParser
 
 #For skype handset
@@ -74,6 +75,23 @@ class Timing(object):
             now = time.time()
 
 
+class PollThread(Thread):
+    def __init__(self, ep):
+        Thread.__init__(self)
+        self.ep = ep
+
+    def run(self):
+        while 1:
+            try:
+                r = self.ep.read(self.ep.wMaxPacketSize)
+                print ' '.join(map(lambda b: "%02x" % b, r))
+            except usb.core.USBError as e:
+                if str(e) == "Operation timed out":
+                    # there must be a better way
+                    continue
+                print e
+                break
+
 
 class Replayer(object):
     """
@@ -107,11 +125,24 @@ class Replayer(object):
         if self.device is None:
             raise ValueError('The device with vid=0x%x, pid=0x%x is not connected') % (self.vid, self.pid)
 
+        
+        if self.device.is_kernel_driver_active(self.logical_iface):
+            if self.debug: print 'Detaching kernal driver'
+            self.device.detach_kernel_driver(self.logical_iface)
+
         self.set_configuration(self.logical_cfg)
         self.set_interface(self.logical_iface, self.logical_alt_setting)
         if self.debug:
             print 'Logical ep = %d' % self.logical_ep
             self.print_descriptor_info()
+
+        # get a list of incoming interrupt endpoints in our interface
+        self.poll_eps = usb.util.find_descriptor(
+                self.iface, find_all=True,
+                custom_match=lambda e: (usb.util.endpoint_direction(e.bEndpointAddress) ==
+                                           usb.util.ENDPOINT_IN) and
+                                       (usb.util.endpoint_type(e.bmAttributes) == 
+                                           usb.util.ENDPOINT_TYPE_INTR))
 
         self.ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
         if not self.ep:
@@ -121,23 +152,23 @@ class Replayer(object):
 
 
 
-    def initialize_descriptors(self, packet):
-        """ 
-        After getting the first pcap packet from the stream, extract the vendorId,
-        productId, endpoint address from the packet.  Then, if there are differences,
-        set the configuration, interface and endpoint descriptors to match what's
-        in the packet.  
-        """
-        print 'In initialize_descriptors'
-        if (packet.epnum != self.ep_address):
-            if self.debug:
-                print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
-            self.ep_address = packet.epnum
+    #def initialize_descriptors(self, packet):
+        #""" 
+        #After getting the first pcap packet from the stream, extract the vendorId,
+        #productId, endpoint address from the packet.  Then, if there are differences,
+        #set the configuration, interface and endpoint descriptors to match what's
+        #in the packet.  
+        #"""
+        #print 'In initialize_descriptors'
+        #if (packet.epnum != self.ep_address):
+            #if self.debug:
+                #print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
+            #self.ep_address = packet.epnum
 
-        self.set_configuration(self.logical_cfg)
-        self.set_interface(self.logical_iface, self.logical_alt_setting)
-        if self.debug:
-            self.print_descriptor_info()
+        #self.set_configuration(self.logical_cfg)
+        #self.set_interface(self.logical_iface, self.logical_alt_setting)
+        #if self.debug:
+            #self.print_descriptor_info()
 
 
 
@@ -417,10 +448,13 @@ class Replayer(object):
             self.print_cfg_descriptor_fields()
             self.print_iface_descriptor_fields()
             self.print_ep_descriptor_fields()
-        res = self.device.is_kernel_driver_active(self.logical_iface)
-        if res:
-            print 'Detaching kernal driver'
-            self.device.detach_kernel_driver(self.logical_iface)
+
+
+        for ep in self.poll_eps:
+            if self.debug: print 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress
+            thread = PollThread(ep)
+            thread.start()
+
 
         if self.debug:
             print 'Entering Replayer run loop'
@@ -444,7 +478,6 @@ class Replayer(object):
                     packet.print_pcap_summary()
 
                 # Wait for awhile before sending next usb packet
-                print packet
                 self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
                 self.send_usb_packet(packet)
                 #if loops > MAX_LOOPS:
@@ -453,7 +486,9 @@ class Replayer(object):
                 sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
                 traceback.print_exc()
                 break
-        self.reset_device()
+        #wait for keyboard interrupt, let poll threads continue
+        while True:
+            time.sleep(5)
 
 
     def keyboard_handler(self, signum, frame):
@@ -477,13 +512,17 @@ class Replayer(object):
         """
         if self.debug:
             print 'In send_usb_packet'
-        ret_array = []
-        send_array = []
+
+        if packet.epnum in [p.bEndpointAddress for p in self.poll_eps]:
+            if self.debug:
+                print "Ignoring polled endpoint %s" % hex(packet.epnum)
+            return
+
         #ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
         ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==packet.epnum)
 
+
         # Check to see if this is a setup packet.
-        # It is safe to decode setup packet if setup flag is 's'
         # Packet can be both a setup and a submission packet
         if packet.is_setup_packet:
             self.send_setup_packet(packet)
@@ -559,7 +598,7 @@ class Replayer(object):
             print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
         ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.wLength)
         if len(ret_array) != packet.length:
-            print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to send' % (len(ret_array), packet.length)
+            print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to read' % (len(ret_array), packet.length)
 
 
 
