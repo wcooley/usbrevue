@@ -41,7 +41,6 @@ EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3
 BUS = 0x6
 DEVICE = 0x3
 DEBUG = False
-PRINTIT = True
 
 
 
