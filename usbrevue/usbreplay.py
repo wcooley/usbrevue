@@ -74,6 +74,7 @@ class Timing(object):
             now = time.time()
 
 
+
 class PollThread(Thread):
     def __init__(self, ep):
         Thread.__init__(self)
@@ -90,6 +91,7 @@ class PollThread(Thread):
                     continue
                 print e
                 break
+
 
 
 class Replayer(object):
@@ -160,21 +162,6 @@ class Replayer(object):
             self.device.attach_kernel_driver(self.logical_iface)
 
 
-    def print_descriptor_info(self):
-        """ 
-        Utility function to print out some basic device hierarcy numbers, ids, 
-        and endpoint address.
-        """
-        print '--------------------------------'
-        print 'In print_descriptor_info'
-        print 'vid = 0x%x' % self.vid
-        print 'pid = 0x%x' % self.pid
-        print 'logical_cfg_idx = %d' % self.logical_cfg
-        print 'logical_iface_idx = %d' % self.logical_iface
-        print 'logical_alt_setting_idx = %d' % self.logical_alt_setting
-      
-
-
     # Execute lsusb to see USB devices on your system
     #
     # Descriptor class hierarchy is:
@@ -200,6 +187,273 @@ class Replayer(object):
         return device
       
 
+    # Configuration descriptor specifies values such as amount of power
+    # this particular configuration uses, if device is self or bus 
+    # powered and number of interfaces it has. Few devices have more
+    # than 1 configuration, so cfg index will usually be empty and we will
+    # simply select the only active configuration at index 0. Only 1 
+    # configuration may be enabled at a time
+    def set_configuration(self, logical_cfg=0):
+        """ 
+        Set configuration descriptor based on the cfg_logical_idx for desired 
+        configuration in the hierarchy. 
+        Example to set the second configuration:  
+          config = dev[1]
+        """
+        if self.debug:
+            print 'In set_configuration'
+        self.cfg = self.device[logical_cfg]
+
+
+    # Interface descriptor resolves into a functional group performing a
+    # single feature of the device.  For example, you could have an 
+    # all-in-one printer, where interface 1 describes the endpoints of a
+    # fax function, interface 2 describes the endpoints of a scanner 
+    # function, and interface 3 describes the endpoints of a printer 
+    # function.  More than one interface may be enabled at one time.  The
+    # altsetting function will allow the interface to change settings on
+    # the fly.  
+    # For example, interface 0 could have an altsetting of 0, and interface
+    # 1 could have an altsetting of 0 or an altsetting of 1.  A 
+    # set_interface request can be used to enable one or the other of those
+    # interface descriptors.  If interface 1, altsetting 1 is set, then
+    # we can change the endpoint settings of interface 1, altsetting 1 
+    # without affecting the endpoint settings of interface 1, altsetting 0.
+    def set_interface(self, logical_iface=0, logical_alt_setting=0):
+        """ 
+        Set interface descriptor based on interface and alternate setting numbers
+        Example to access the first interface and first alternate setting:  
+          iface = cfg[(0,0)]
+        """
+        if self.debug:
+            print 'In set_interface'
+        self.iface = self.cfg[(logical_iface, logical_alt_setting)]
+        try:
+            self.device.set_interface_altsetting(self.iface)
+        except usb.core.USBError as e:
+            print 'In set_interface ', e
+            sys.stderr.write("Error trying to set interface alternate setting")
+            pass
+
+
+    def run(self, pcap, out):
+        """
+        Run the replayer loop.  The loop will get each consecutive pcap 
+        packet and replay it as nearly as possible.
+        """
+        MAX_LOOPS = 10
+        loops = 0
+        if self.debug:
+            self.print_device_enumeration_tree()
+            self.print_device_descriptor_fields()
+            self.print_cfg_descriptor_fields()
+            self.print_iface_descriptor_fields()
+
+        for ep in self.poll_eps:
+            if self.debug: print 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress
+            thread = PollThread(ep)
+            thread.start()
+
+        if self.debug:
+            print 'Entering Replayer run loop'
+        while True:
+            try:
+                if self.debug:
+                    print '------------------------------------------'
+                    print 'In run: Starting loop ', loops
+                loops += 1
+                hdr, pack = pcap.next()
+                if hdr is None:
+                    break # EOF
+
+                packet = Packet(hdr, pack)
+                if self.debug:
+                    #print '\nIn run: Dumping pcap packet data ...'
+                    #out.dump(hdr, packet.repack())
+                    print 'In run: Printing pcap field information ...'
+                    packet.print_pcap_fields()
+                    print 'In run: Printing pcap summary information ...'
+                    packet.print_pcap_summary()
+
+                # Wait for awhile before sending next usb packet
+                self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
+                self.send_usb_packet(packet)
+            except Exception:
+                sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
+                traceback.print_exc()
+                break
+        #wait for keyboard interrupt, let poll threads continue
+        while True:
+            time.sleep(5)
+
+
+    def send_usb_packet(self, packet):
+        """ 
+        Send the usb packet to the device.  It will be either a control packet
+        with IN or OUT direction (with respect to the host), or a non-control
+        packet (Bulk, Isochronous, or Interrupt) with IN or OUT direction.
+        It can also be a submission from the host or a callback from the 
+        device.  In any case, there may or may not be a data payload.
+        """
+        if self.debug:
+            print 'In send_usb_packet'
+
+        # Check to see if this is a setup packet.
+        if packet.is_setup_packet:
+            self.send_setup_packet(packet)
+        else:
+            # Check that packet is on an endpoint we care about
+            if packet.epnum not in self.eps:
+                if self.debug: print "Ignoring endpoint %s" % hex(packet.epnum)
+                return
+
+            ep = self.eps[packet.epnum]
+
+            # Otherwise check to see if it is a submission packet.
+            # Submission means xfer from host to USB device.
+            if packet.event_type == 'S':       
+                self.send_submission_packet(packet, ep)
+
+            # Otherwise check to see it it is a callback packet.
+            # Callback means xfer from USB device to host.
+            elif packet.event_type == 'C':   
+                self.get_callback(packet)
+
+
+    def send_setup_packet(self, packet):
+        if self.debug:
+            print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
+        #if packet.urb not in self.urbs:
+        if self.debug:
+            print 'Appending 0x%x to urb list' % packet.urb
+        self.urbs.append(packet.urb)
+        if self.debug:
+            print 'Current urbs = ', self.urbs
+
+        # IN means read bytes from device to host.
+        if (packet.epnum == 0x80):
+            self.ctrl_transfer_from_device(packet)
+        # OUT means write bytes from host to device.
+        elif (packet.epnum == 0x00):
+            self.ctrl_transfer_to_device(packet)
+
+
+    def ctrl_transfer_to_device(self, packet):
+        # If no data payload then send_array should be None
+        if self.debug:
+            print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
+        numbytes = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.data)
+        if numbytes != len(packet.data):
+            print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
+
+
+    def ctrl_transfer_from_device(self, packet):
+        # If no data payload then numbytes should be 0
+        if self.debug:
+            print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
+        ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.wLength)
+        if len(ret_array) != packet.length:
+            print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to read' % (len(ret_array), packet.length)
+
+
+    def send_submission_packet(self, packet, ep):
+        # Otherwise check to see if it is a submission packet.
+        # A submission can be either a read or write so check direction.
+        # Submission means xfer from host to USB device.
+        # Every submission or setup packet should have a callback?
+        if self.debug:
+            print 'In send_usb_packet: this is a submission packet for urb id = ', packet.urb
+        #if packet.urb not in self.urbs:
+        if self.debug:
+            print 'Appending 0x%x to urb list' % packet.urb
+        self.urbs.append(packet.urb)
+        if self.debug:
+            print 'Current urbs = ', self.urbs
+
+        if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN:
+            self.read_from_device(packet, ep)
+        else:
+            self.write_to_device(packet, ep)
+
+
+    def write_to_device(self, packet, ep):
+        numbytes = 0  
+        if packet.data:
+            numbytes = ep.write(packet.data)
+        else:
+            if self.debug:
+                print 'Packet data is empty.  No submission data to send.'
+        if self.debug:
+            print 'Wrote %d submission bytes to USB device, expected to write %d bytes ' %(numbytes, packet.len_cap)
+        if numbytes != packet.len_cap:
+            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, packet.len_cap)
+
+
+    def read_from_device(self, packet, ep):
+        TIMEOUT = 1000
+        ret_array = []
+        if self.debug:
+            print 'Attempting to read %d bytes from device to host' % packet.length
+        if packet.length:
+#            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
+            try:
+                ret_array = ep.read(packet.length, TIMEOUT)
+            except usb.core.USBError as e:
+                print 'In read_from_device ', e
+
+            #ret_array = self.device.read(ep, packet.length,  self.logical_iface, TIMEOUT)
+            if self.debug:
+                print 'Finished attempting to read %d callback bytes from device to host' % packet.length
+                print 'Actually read %d callback bytes from device to host' % len(ret_array)
+            if ret_array:
+                if self.debug:
+                    print '%d data items read from callback packet.  Data = %s' % (len(ret_array), ret_array)
+                if packet.length != len(ret_array):
+                    print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (packet.length, len(ret_array))
+            else:
+                if self.debug:
+                    print 'No data items were read from callback packet.  '
+        else:
+            if self.debug:
+                print 'No callback bytes to read: length of packet.data is 0'
+            
+
+    def get_callback(self, packet):
+        if self.debug:
+            print 'In send_usb_packet: this is a callback packet for urb id = ', packet.urb
+        if packet.urb in self.urbs:
+            if self.debug:
+                print 'Removing 0x%x from urb list' % packet.urb
+            self.urbs.remove(packet.urb)
+        else:
+            print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
+        if self.debug:
+            print 'Current urbs = ', self.urbs
+
+
+    def keyboard_handler(self, signum, frame):
+        print 'Signal handler called with signal ', signum
+        self.reset_device()
+        sys.exit(0)
+
+
+    def init_handlers(self):
+        signal.signal(signal.SIGINT, self.keyboard_handler)
+
+
+    def print_descriptor_info(self):
+        """ 
+        Utility function to print out some basic device hierarcy numbers, ids, 
+        and endpoint address.
+        """
+        print '--------------------------------'
+        print 'In print_descriptor_info'
+        print 'vid = 0x%x' % self.vid
+        print 'pid = 0x%x' % self.pid
+        print 'logical_cfg_idx = %d' % self.logical_cfg
+        print 'logical_iface_idx = %d' % self.logical_iface
+        print 'logical_alt_setting_idx = %d' % self.logical_alt_setting
+      
 
     # Got this from USB in a NutShell, chp 5.
     def print_device_descriptor_fields(self):
@@ -303,7 +557,6 @@ class Replayer(object):
         print 'iInterface = ', iface.iInterface
 
 
-
     # Got this from USB in a NutShell, chp 5.
     def print_ep_descriptor_fields(self, ep):
         """ 
@@ -354,267 +607,6 @@ class Replayer(object):
                 print '  alternate setting = %s ' % (iface.bAlternateSetting)
                 for ep in iface:
                     print '    endpoint address = 0x%x ' % (ep.bEndpointAddress)
-
-    
-    # Configuration descriptor specifies values such as amount of power
-    # this particular configuration uses, if device is self or bus 
-    # powered and number of interfaces it has. Few devices have more
-    # than 1 configuration, so cfg index will usually be empty and we will
-    # simply select the only active configuration at index 0. Only 1 
-    # configuration may be enabled at a time
-    def set_configuration(self, logical_cfg=0):
-        """ 
-        Set configuration descriptor based on the cfg_logical_idx for desired 
-        configuration in the hierarchy. 
-        Example to set the second configuration:  
-          config = dev[1]
-        """
-        if self.debug:
-            print 'In set_configuration'
-        self.cfg = self.device[logical_cfg]
-
-
-    # Interface descriptor resolves into a functional group performing a
-    # single feature of the device.  For example, you could have an 
-    # all-in-one printer, where interface 1 describes the endpoints of a
-    # fax function, interface 2 describes the endpoints of a scanner 
-    # function, and interface 3 describes the endpoints of a printer 
-    # function.  More than one interface may be enabled at one time.  The
-    # altsetting function will allow the interface to change settings on
-    # the fly.  
-    # For example, interface 0 could have an altsetting of 0, and interface
-    # 1 could have an altsetting of 0 or an altsetting of 1.  A 
-    # set_interface request can be used to enable one or the other of those
-    # interface descriptors.  If interface 1, altsetting 1 is set, then
-    # we can change the endpoint settings of interface 1, altsetting 1 
-    # without affecting the endpoint settings of interface 1, altsetting 0.
-    def set_interface(self, logical_iface=0, logical_alt_setting=0):
-        """ 
-        Set interface descriptor based on interface and alternate setting numbers
-        Example to access the first interface and first alternate setting:  
-          iface = cfg[(0,0)]
-        """
-        if self.debug:
-            print 'In set_interface'
-        self.iface = self.cfg[(logical_iface, logical_alt_setting)]
-        try:
-            self.device.set_interface_altsetting(self.iface)
-        except usb.core.USBError as e:
-            print 'In set_interface ', e
-            sys.stderr.write("Error trying to set interface alternate setting")
-            pass
-
-
-    def run(self, pcap, out):
-        """
-        Run the replayer loop.  The loop will get each consecutive pcap 
-        packet and replay it as nearly as possible.
-        """
-        MAX_LOOPS = 10
-        loops = 0
-        if self.debug:
-            self.print_device_enumeration_tree()
-            self.print_device_descriptor_fields()
-            self.print_cfg_descriptor_fields()
-            self.print_iface_descriptor_fields()
-
-
-        for ep in self.poll_eps:
-            if self.debug: print 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress
-            thread = PollThread(ep)
-            thread.start()
-
-
-        if self.debug:
-            print 'Entering Replayer run loop'
-        while True:
-            try:
-                if self.debug:
-                    print '------------------------------------------'
-                    print 'In run: Starting loop ', loops
-                loops += 1
-                hdr, pack = pcap.next()
-                if hdr is None:
-                    break # EOF
-
-                packet = Packet(hdr, pack)
-                if self.debug:
-                    #print '\nIn run: Dumping pcap packet data ...'
-                    #out.dump(hdr, packet.repack())
-                    print 'In run: Printing pcap field information ...'
-                    packet.print_pcap_fields()
-                    print 'In run: Printing pcap summary information ...'
-                    packet.print_pcap_summary()
-
-                # Wait for awhile before sending next usb packet
-                self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
-                self.send_usb_packet(packet)
-            except Exception:
-                sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
-                traceback.print_exc()
-                break
-        #wait for keyboard interrupt, let poll threads continue
-        while True:
-            time.sleep(5)
-
-
-    def keyboard_handler(self, signum, frame):
-        print 'Signal handler called with signal ', signum
-        self.reset_device()
-        sys.exit(0)
-
-
-    def init_handlers(self):
-        signal.signal(signal.SIGINT, self.keyboard_handler)
-
-
-    def send_usb_packet(self, packet):
-        """ 
-        Send the usb packet to the device.  It will be either a control packet
-        with IN or OUT direction (with respect to the host), or a non-control
-        packet (Bulk, Isochronous, or Interrupt) with IN or OUT direction.
-        It can also be a submission from the host or a callback from the 
-        device.  In any case, there may or may not be a data payload.
-        """
-        if self.debug:
-            print 'In send_usb_packet'
-
-        # Check to see if this is a setup packet.
-        if packet.is_setup_packet:
-            self.send_setup_packet(packet)
-        else:
-            # Check that packet is on an endpoint we care about
-            if packet.epnum not in self.eps:
-                if self.debug: print "Ignoring endpoint %s" % hex(packet.epnum)
-                return
-
-            ep = self.eps[packet.epnum]
-
-            # Otherwise check to see if it is a submission packet.
-            # Submission means xfer from host to USB device.
-            if packet.event_type == 'S':       
-                self.send_submission_packet(packet, ep)
-
-            # Otherwise check to see it it is a callback packet.
-            # Callback means xfer from USB device to host.
-            elif packet.event_type == 'C':   
-                self.get_callback(packet)
-
-    def send_setup_packet(self, packet):
-        if self.debug:
-            print 'In send_usb_packet: this is a setup packet with urb id = ', packet.urb
-        #if packet.urb not in self.urbs:
-        if self.debug:
-            print 'Appending 0x%x to urb list' % packet.urb
-        self.urbs.append(packet.urb)
-        if self.debug:
-            print 'Current urbs = ', self.urbs
-
-        # IN means read bytes from device to host.
-        if (packet.epnum == 0x80):
-            self.ctrl_transfer_from_device(packet)
-        # OUT means write bytes from host to device.
-        elif (packet.epnum == 0x00):
-            self.ctrl_transfer_to_device(packet)
-
-
-
-    def get_callback(self, packet):
-        if self.debug:
-            print 'In send_usb_packet: this is a callback packet for urb id = ', packet.urb
-        if packet.urb in self.urbs:
-            if self.debug:
-                print 'Removing 0x%x from urb list' % packet.urb
-            self.urbs.remove(packet.urb)
-        else:
-            print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
-        if self.debug:
-            print 'Current urbs = ', self.urbs
-
-
-
-    def ctrl_transfer_to_device(self, packet):
-        # If no data payload then send_array should be None
-        if self.debug:
-            print 'In send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
-        numbytes = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.data)
-        if numbytes != len(packet.data):
-            print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
-
-
-
-    def ctrl_transfer_from_device(self, packet):
-        # If no data payload then numbytes should be 0
-        if self.debug:
-            print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
-        ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.wLength)
-        if len(ret_array) != packet.length:
-            print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to read' % (len(ret_array), packet.length)
-
-
-
-    def write_to_device(self, packet, ep):
-        numbytes = 0  
-        if packet.data:
-            numbytes = ep.write(packet.data)
-        else:
-            if self.debug:
-                print 'Packet data is empty.  No submission data to send.'
-        if self.debug:
-            print 'Wrote %d submission bytes to USB device, expected to write %d bytes ' %(numbytes, packet.len_cap)
-        if numbytes != packet.len_cap:
-            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, packet.len_cap)
-
-
-
-    def read_from_device(self, packet, ep):
-        TIMEOUT = 1000
-        ret_array = []
-        if self.debug:
-            print 'Attempting to read %d bytes from device to host' % packet.length
-        if packet.length:
-#            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
-            try:
-                ret_array = ep.read(packet.length, TIMEOUT)
-            except usb.core.USBError as e:
-                print 'In read_from_device ', e
-
-            #ret_array = self.device.read(ep, packet.length,  self.logical_iface, TIMEOUT)
-            if self.debug:
-                print 'Finished attempting to read %d callback bytes from device to host' % packet.length
-                print 'Actually read %d callback bytes from device to host' % len(ret_array)
-            if ret_array:
-                if self.debug:
-                    print '%d data items read from callback packet.  Data = %s' % (len(ret_array), ret_array)
-                if packet.length != len(ret_array):
-                    print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (packet.length, len(ret_array))
-            else:
-                if self.debug:
-                    print 'No data items were read from callback packet.  '
-        else:
-            if self.debug:
-                print 'No callback bytes to read: length of packet.data is 0'
-            
-
-
-    def send_submission_packet(self, packet, ep):
-        # Otherwise check to see if it is a submission packet.
-        # A submission can be either a read or write so check direction.
-        # Submission means xfer from host to USB device.
-        # Every submission or setup packet should have a callback?
-        if self.debug:
-            print 'In send_usb_packet: this is a submission packet for urb id = ', packet.urb
-        #if packet.urb not in self.urbs:
-        if self.debug:
-            print 'Appending 0x%x to urb list' % packet.urb
-        self.urbs.append(packet.urb)
-        if self.debug:
-            print 'Current urbs = ', self.urbs
-
-        if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN:
-            self.read_from_device(packet, ep)
-        else:
-            self.write_to_device(packet, ep)
 
 
 
