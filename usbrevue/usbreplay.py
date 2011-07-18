@@ -11,7 +11,6 @@ import time
 import math
 import signal
 from threading import Thread
-#from optparse import OptionParser
 
 #For skype handset
 #VENDOR_ID = 0x1778
@@ -118,8 +117,6 @@ class Replayer(object):
         self.logical_cfg = options.logical_cfg
         self.logical_iface = options.logical_iface
         self.logical_alt_setting = options.logical_alt_setting
-        self.ep_address = options.ep_address
-        self.logical_ep = options.ep_address & 0x0f
 
         self.device = self.get_usb_device(self.vid, self.pid)
         if self.device is None:
@@ -133,43 +130,20 @@ class Replayer(object):
         self.set_configuration(self.logical_cfg)
         self.set_interface(self.logical_iface, self.logical_alt_setting)
         if self.debug:
-            print 'Logical ep = %d' % self.logical_ep
             self.print_descriptor_info()
 
-        # get a list of incoming interrupt endpoints in our interface
-        self.poll_eps = usb.util.find_descriptor(
-                self.iface, find_all=True,
-                custom_match=lambda e: (usb.util.endpoint_direction(e.bEndpointAddress) ==
-                                           usb.util.ENDPOINT_IN) and
-                                       (usb.util.endpoint_type(e.bmAttributes) == 
-                                           usb.util.ENDPOINT_TYPE_INTR))
-
-        self.ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
-        if not self.ep:
-            raise ValueError('Could not find USB Device with endpoint address', self.ep_address)
+        # sort all endpoints on our interface: incoming interrupts go into poll_eps, and
+        # all others go into eps, indexed by epnum
+        self.poll_eps = []
+        self.eps = {0x00: None, 0x80: None}
+        for ep in self.iface:
+            if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN and \
+                    usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_INTR:
+                self.poll_eps.append(ep)
+            else:
+                self.eps[ep.bEndpointAddress] = ep
 
         self.timer = Timing(debug=options.debug)
-
-
-
-    #def initialize_descriptors(self, packet):
-        #""" 
-        #After getting the first pcap packet from the stream, extract the vendorId,
-        #productId, endpoint address from the packet.  Then, if there are differences,
-        #set the configuration, interface and endpoint descriptors to match what's
-        #in the packet.  
-        #"""
-        #print 'In initialize_descriptors'
-        #if (packet.epnum != self.ep_address):
-            #if self.debug:
-                #print 'Changing pcap packet endpoint address from ', self.ep_address, ' to ', packet.epnum
-            #self.ep_address = packet.epnum
-
-        #self.set_configuration(self.logical_cfg)
-        #self.set_interface(self.logical_iface, self.logical_alt_setting)
-        #if self.debug:
-            #self.print_descriptor_info()
-
 
 
     def reset_device(self):
@@ -198,8 +172,6 @@ class Replayer(object):
         print 'logical_cfg_idx = %d' % self.logical_cfg
         print 'logical_iface_idx = %d' % self.logical_iface
         print 'logical_alt_setting_idx = %d' % self.logical_alt_setting
-        print 'ep_address = 0x%x' % self.ep_address
-        print 'logical_ep_idx = %d' % self.logical_ep
       
 
 
@@ -216,8 +188,7 @@ class Replayer(object):
     #
     #
     # Device descriptor represents entire device.
-    #def get_usb_device(self, vid=0x1778, pid=0x0406):  # for skype handset
-    def get_usb_device(self, vid=VENDOR_ID, pid=PRODUCT_ID):   # for my vm mouse
+    def get_usb_device(self, vid=VENDOR_ID, pid=PRODUCT_ID):
         """ 
         Get the usb.core.Device object based on vendorId and productId.  
         """
@@ -334,13 +305,12 @@ class Replayer(object):
 
 
     # Got this from USB in a NutShell, chp 5.
-    def print_ep_descriptor_fields(self):
+    def print_ep_descriptor_fields(self, ep):
         """ 
         Utility function to print out all endpoint descriptor fields.
         """
         print '--------------------------------'
         print 'In print_ep_descriptor_fields'
-        ep = self.ep
         # bLength = Size of endpoint descriptor in bytes (number).
         print 'bLength = ', ep.bLength
         # bDescriptorType = Endpoint descriptor (0x05) in bytes (constant).
@@ -447,7 +417,6 @@ class Replayer(object):
             self.print_device_descriptor_fields()
             self.print_cfg_descriptor_fields()
             self.print_iface_descriptor_fields()
-            self.print_ep_descriptor_fields()
 
 
         for ep in self.poll_eps:
@@ -480,8 +449,6 @@ class Replayer(object):
                 # Wait for awhile before sending next usb packet
                 self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
                 self.send_usb_packet(packet)
-                #if loops > MAX_LOOPS:
-                    #raise Exception
             except Exception:
                 sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
                 traceback.print_exc()
@@ -493,7 +460,6 @@ class Replayer(object):
 
     def keyboard_handler(self, signum, frame):
         print 'Signal handler called with signal ', signum
-        #raise KeyboardInterrupt()
         self.reset_device()
         sys.exit(0)
 
@@ -513,31 +479,26 @@ class Replayer(object):
         if self.debug:
             print 'In send_usb_packet'
 
-        if packet.epnum in [p.bEndpointAddress for p in self.poll_eps]:
-            if self.debug:
-                print "Ignoring polled endpoint %s" % hex(packet.epnum)
-            return
-
-        #ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==self.ep_address)
-        ep = usb.util.find_descriptor(self.iface, custom_match=lambda e: e.bEndpointAddress==packet.epnum)
-
-
         # Check to see if this is a setup packet.
-        # Packet can be both a setup and a submission packet
         if packet.is_setup_packet:
             self.send_setup_packet(packet)
+        else:
+            # Check that packet is on an endpoint we care about
+            if packet.epnum not in self.eps:
+                if self.debug: print "Ignoring endpoint %s" % hex(packet.epnum)
+                return
 
-        # Otherwise check to see if it is a submission packet.
-        # Submission means xfer from host to USB device.
-        elif packet.event_type == 'S':       
-            self.send_submission_packet(packet, ep)
+            ep = self.eps[packet.epnum]
 
-        # Otherwise check to see it it is a callback packet.
-        # Callback means xfer from USB device to host.
-        elif packet.event_type == 'C':   
-            self.get_callback(packet)
+            # Otherwise check to see if it is a submission packet.
+            # Submission means xfer from host to USB device.
+            if packet.event_type == 'S':       
+                self.send_submission_packet(packet, ep)
 
-
+            # Otherwise check to see it it is a callback packet.
+            # Callback means xfer from USB device to host.
+            elif packet.event_type == 'C':   
+                self.get_callback(packet)
 
     def send_setup_packet(self, packet):
         if self.debug:
@@ -561,24 +522,14 @@ class Replayer(object):
     def get_callback(self, packet):
         if self.debug:
             print 'In send_usb_packet: this is a callback packet for urb id = ', packet.urb
-            #array = ep.read(self.ep_address, pack.datalen, self.iface_num, TIMEOUT)
-            # Every submission should have a callback
         if packet.urb in self.urbs:
             if self.debug:
                 print 'Removing 0x%x from urb list' % packet.urb
-                self.urbs.remove(packet.urb)
+            self.urbs.remove(packet.urb)
         else:
             print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
         if self.debug:
             print 'Current urbs = ', self.urbs
-               #raise ValueError('Packet urb id=0x%x has a callback but not a submission' % packet.urb)
-        #try:
-            #data = self.read_from_device(packet)
-        #except:
-            #print 'Did not read any data from callback: resetting device'
-            #self.reset_device()
-            #print 'Printing traceback ...'
-            #traceback.print_exc()
 
 
 
@@ -660,21 +611,10 @@ class Replayer(object):
         if self.debug:
             print 'Current urbs = ', self.urbs
 
-        # OUT means write bytes from host to device.
-        #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT:
-        if packet.epnum & 0x80:
+        if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN:
             self.read_from_device(packet, ep)
         else:
             self.write_to_device(packet, ep)
-
-
-        # IN means read bytes from device to host.
-        #else:
-            #if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN: 
-                #    self.read_from_device(packet)
-            #else:
-            #    print 'In send_submission_packet, endpoint is None'
-
 
 
 
@@ -730,14 +670,6 @@ def get_arguments(argv):
                       help="The logical alternate setting index in the interface (starting at 0) in the device hierarchy"
                      )
 
-    # Get the endpoint index (defaults to 0)
-    parser.add_option("-e", "--epaddress", 
-                      dest="ep_address", 
-                      default=EP_ADDRESS, 
-                      type="int", 
-                      help="The endpoint address for the USB device in the device hierarchy"
-                     )
-
     # Set the debug mode to quiet or verbose
     parser.add_option("-q", "--quiet", 
                       dest="debug", 
@@ -765,14 +697,7 @@ def print_options(options):
         print 'options.cfg = %d' % options.logical_cfg
         print 'options.iface = %d' % options.logical_iface
         print 'options.altsetting = %d' % options.logical_alt_setting
-        print 'options.epaddress = 0x%x' % options.ep_address
-    if options.debug == 1: 
-        dbg = 'True'
-    else: 
-        dbg = 'False'
-
-    if options.debug:
-        print 'options.debug = %s' % dbg
+        print 'options.debug = True'
 
 
 if __name__ == '__main__':
