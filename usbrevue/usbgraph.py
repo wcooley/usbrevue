@@ -117,7 +117,11 @@ class ByteModel(QAbstractTableModel):
                 composite_bytes = re.findall(r'bytes\[(\d+)\]', cb_run)
 
                 if not -1 in [bytes[int(c)][-1] for c in composite_bytes]:
-                    custom_bytes[cb].append(eval(cb_run))
+                    try:
+                        custom_bytes[cb].append(eval(cb_run))
+                    except SyntaxError:
+                        #TODO: handle
+                        pass
                 else:
                     custom_bytes[cb].append(-1)
                     
@@ -202,6 +206,7 @@ class BytePlot(Qwt.QwtPlot):
     def alignScales(self):
         self.canvas().setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Plain)
         self.canvas().setLineWidth(1)
+        self.setAxisScaleDraw(0, ByteScale())
         for i in range(Qwt.QwtPlot.axisCnt):
             scaleWidget = self.axisWidget(i)
             if scaleWidget:
@@ -209,6 +214,8 @@ class BytePlot(Qwt.QwtPlot):
             scaleDraw = self.axisScaleDraw(i)
             if scaleDraw:
                 scaleDraw.enableComponent(Qwt.QwtAbstractScaleDraw.Backbone, False)
+        self.setAxisTitle(0, "Byte value")
+        self.setAxisTitle(2, "Packet sequence number")
 
     def row_added(self):
         l = len(bytes[0])
@@ -263,7 +270,11 @@ class BytePlot(Qwt.QwtPlot):
                     self.custom_curves[d].attach(self)
                     for pos in range(len(bytes[0])):
                         if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
-                            custom_bytes[d].append(eval(d_run))
+                            try:
+                                custom_bytes[d].append(eval(d_run))
+                            except SyntaxError:
+                                #TODO: handle
+                                pass
                         else:
                             custom_bytes[d].append(-1)
                 else:
@@ -291,6 +302,14 @@ class BytePlot(Qwt.QwtPlot):
             curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
 
 
+class ByteScale(Qwt.QwtScaleDraw):
+    def __init__(self):
+        Qwt.QwtScaleDraw.__init__(self)
+
+    def label(self, value):
+        return Qwt.QwtText('%X' % value)
+
+
 class ByteData(Qwt.QwtArrayData):
     def __init__(self, x, y, mask):
         Qwt.QwtArrayData.__init__(self, x, y)
@@ -312,8 +331,6 @@ class ByteData(Qwt.QwtArrayData):
 
         return Qt.QRectF(xmin, ymin, xmax-xmin, ymax-ymin)
     """
-
-
 
 class ByteCurve(Qwt.QwtPlotCurve):
     def __init__(self, title=None):
@@ -368,6 +385,21 @@ class USBGraph(QApplication):
         self.bytevalwidget = ByteValWidget()
         self.byteplot = BytePlot()
 
+        self.bytevalgroup = QGroupBox('Custom Byte Expressions')
+        self.groupvb = QVBoxLayout()
+        self.groupvb.addWidget(self.bytevalwidget)
+        self.bytevalgroup.setLayout(self.groupvb)
+
+        self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
+                                            Qwt.QwtPlot.yLeft,
+                                            Qwt.QwtPicker.RectSelection,
+                                            Qwt.QwtPlotPicker.RectRubberBand,
+                                            Qwt.QwtPicker.ActiveOnly,
+                                            self.byteplot.canvas())
+        self.bytepicker.selected.connect(self.byte_picked)
+        self.bytepicker.appended.connect(self.byte_appended)
+        self.bytepicker.moved.connect(self.byte_moved)
+
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
@@ -377,13 +409,13 @@ class USBGraph(QApplication):
         self.bytevalwidget.byte_vals_changed.connect(self.byteplot.new_custom_bytes)
 
         self.vb = QVBoxLayout()
-        self.vb.addWidget(self.bytevalwidget)
         self.vb.addWidget(self.byteview)
+        self.vb.addWidget(self.bytevalgroup)
 
         self.hb = QHBoxLayout()
         self.hb.addItem(self.vb)
         self.hb.addWidget(self.byteplot)
-
+        
         self.w.setLayout(self.hb)
         self.w.show()
 
@@ -402,6 +434,18 @@ class USBGraph(QApplication):
 
     def dump_opened(self, dumper):
         pass
+
+    def byte_picked(self, selection):
+        print 'selected'
+        print selection
+
+    def byte_appended(self, selection):
+        print 'appended'
+        print selection
+
+    def byte_moved(self, selection):
+        print 'moved'
+        print selection
 
 
 
