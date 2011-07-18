@@ -301,6 +301,11 @@ class BytePlot(Qwt.QwtPlot):
         else:
             curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
 
+    def change_x_range(self, range):
+        self.x_range = range
+
+        self.row_added()
+
 
 class ByteScale(Qwt.QwtScaleDraw):
     def __init__(self):
@@ -390,6 +395,17 @@ class USBGraph(QApplication):
         self.groupvb.addWidget(self.bytevalwidget)
         self.bytevalgroup.setLayout(self.groupvb)
 
+        self.graphvb = QVBoxLayout()
+        self.graphvb.addWidget(self.byteplot)
+        self.plot_range = QSlider()
+        self.plot_range.setOrientation(Qt.Qt.Horizontal)
+        self.plot_range.setRange(10, 1000)
+        self.plot_range.setValue(200)
+        self.plot_range.setTickInterval(50)
+        self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
+        self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
+        self.graphvb.addWidget(self.plot_range)
+
         self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
                                             Qwt.QwtPlot.yLeft,
                                             Qwt.QwtPicker.RectSelection,
@@ -414,7 +430,7 @@ class USBGraph(QApplication):
 
         self.hb = QHBoxLayout()
         self.hb.addItem(self.vb)
-        self.hb.addWidget(self.byteplot)
+        self.hb.addItem(self.graphvb)
         
         self.w.setLayout(self.hb)
         self.w.show()
