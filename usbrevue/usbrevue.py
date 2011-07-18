@@ -488,6 +488,21 @@ REQUEST_TYPE_MASK = dict(
 )
 
 class SetupField(PackedFields):
+    """The ``SetupField`` class provides access to the ``setup`` field of the
+    Packet class. As the ``setup`` field is a multi-byte field with bit-mapped
+    and numeric encodings, this class provides higher-level accessors which
+    decode the various subfields.
+
+    Dynamic accessors for this class are:
+        * bmRequestType
+        * bRequest
+        * wValue
+        * wIndex
+        * wLength
+
+    There are several additional accessors for the subfields of the bit-mapped
+    bmRequestType.
+    """
 
     def __init__(self, data=None, update_parent=None):
         PackedFields.__init__(self, SETUP_FIELD_FORMAT, data, update_parent)
@@ -497,6 +512,11 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeDirection(self):
+        """Decode 'direction' bits of bmRequestType. Gets and sets the
+        following strings:
+                * device_to_host
+                * host_to_device
+        """
         return REQUEST_TYPE_DIRECTION[self._bmRequestType_mask('direction')]
 
     @bmRequestTypeDirection.setter
@@ -507,6 +527,13 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeType(self):
+        """Decode 'type' bits of bmRequestType. Gets and sets the following
+        strings:
+                * standard
+                * class_
+                * vendor
+                * reserved
+        """
         return REQUEST_TYPE_TYPE[self._bmRequestType_mask('type_')]
 
     @bmRequestTypeType.setter
@@ -517,6 +544,13 @@ class SetupField(PackedFields):
 
     @property
     def bmRequestTypeRecipient(self):
+        """Decode 'recipient' bits of bmRequestType. Gets and sets the
+        following strings:
+                * device
+                * interface
+                * endpoint
+                * other
+        """
         return REQUEST_TYPE_RECIPIENT[self._bmRequestType_mask('recipient')]
 
     @bmRequestTypeRecipient.setter
@@ -526,10 +560,16 @@ class SetupField(PackedFields):
                                         REQUEST_TYPE_RECIPIENT[val])
 
     def data_to_str(self):
+        """Compact hex representation of setup data. Note that due to
+        endianness, byte orders may appear to differ from the bytes as
+        presented in ``fields_to_str``.
+        """
         return '%02X %02X %02X%02X %02X%02X %02X%02X' % \
             unpack('<8B', self.datapack.tostring()) # yuck
 
     def fields_to_str(self):
+        """Verbose but single-line string representation of setup data.
+        """
         s = 'bmRequestType: %s, %s, %s (%s)' % (self.bmRequestTypeType,
                                             self.bmRequestTypeDirection,
                                             self.bmRequestTypeRecipient,
@@ -555,7 +595,10 @@ class SetupField(PackedFields):
         return s
 
 
-class WrongPacketXferType(Exception): pass
+class WrongPacketXferType(Exception):
+    """Exception that should be raised when data Packet fields are accessed for
+    inappropriate transfer types. Note that this is currently not done."""
+    pass
 
 if __name__ == '__main__':
     # read a pcap file from stdin, replace the first byte of any data found
