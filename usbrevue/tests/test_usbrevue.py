@@ -284,7 +284,6 @@ class TestSetupField(unittest.TestCase,TestUtil):
                                     REQUEST_TYPE_DIRECTION['host_to_device'])
         self.assertEqual(self.setup.bmRequestTypeDirection, 'host_to_device')
 
-
     def test_bmrequest_type_direction_write(self):
         self.assertEqual(self.setup.bmRequestTypeDirection, 'device_to_host')
         self.set_and_test('bmRequestTypeDirection', 'host_to_device')
@@ -295,27 +294,87 @@ class TestSetupField(unittest.TestCase,TestUtil):
         self.assertEqual(REQUEST_TYPE_TYPE[self.setup.bmRequestTypeType],
                          REQUEST_TYPE_TYPE['standard'])
 
-    def test_bmrequest_type_type_write(self):
+    def test_bmrequest_type_type_class_(self):
         self.set_and_test('bmRequestTypeType', 'class_')
+
+    def test_bmrequest_type_type_vendor(self):
         self.set_and_test('bmRequestTypeType', 'vendor')
+
+    def test_bmrequest_type_type_reserved(self):
         self.set_and_test('bmRequestTypeType', 'reserved')
+
+    def test_bmrequest_type_type_standard(self):
         self.set_and_test('bmRequestTypeType', 'standard')
 
     def test_bmrequest_type_recipient(self):
         self.assertEqual(self.setup.bmRequestTypeRecipient, 'device')
 
-    def test_bmrequest_type_recipient_write(self):
+    def test_bmrequest_type_recipient_interface(self):
         self.set_and_test('bmRequestTypeRecipient', 'interface')
+
+    def test_bmrequest_type_recipient_endpoint(self):
         self.set_and_test('bmRequestTypeRecipient', 'endpoint')
+
+    def test_bmrequest_type_recipient_other(self):
         self.set_and_test('bmRequestTypeRecipient', 'other')
 
-
-
-    def test_brequest(self):
+    def test_brequest_GET_DESCRIPTOR(self):
+        # GET_DESCRIPTOR is in the test packet, so we only assertEqual instead
+        # of set_and_test
         self.assertEqual(self.setup.bRequest,
                         SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
         self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
-                        'GET_DESCRIPTOR')
+                         'GET_DESCRIPTOR')
+
+    def test_brequest_GET_STATUS(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['GET_STATUS'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['GET_STATUS'])
+
+    def test_brequest_CLEAR_FEATURE(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['CLEAR_FEATURE'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['CLEAR_FEATURE'])
+
+    def test_brequest_SET_FEATURE(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SET_FEATURE'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SET_FEATURE'])
+
+    def test_brequest_SET_ADDRESS(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SET_ADDRESS'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SET_ADDRESS'])
+
+    def test_brequest_SET_DESCRIPTOR(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SET_DESCRIPTOR'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SET_DESCRIPTOR'])
+
+    def test_brequest_GET_CONFIGURATION(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['GET_CONFIGURATION'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['GET_CONFIGURATION'])
+
+    def test_brequest_SET_CONFIGURATION(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SET_CONFIGURATION'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SET_CONFIGURATION'])
+
+    def test_brequest_GET_INTERFACE(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['GET_INTERFACE'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['GET_INTERFACE'])
+
+    def test_brequest_SET_INTERFACE(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SET_INTERFACE'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SET_INTERFACE'])
+
+    def test_brequest_SYNCH_FRAME(self):
+        self.set_and_test('bRequest', SETUP_REQUEST_TYPES['SYNCH_FRAME'])
+        self.assertEqual(self.setup.bRequest,
+                            SETUP_REQUEST_TYPES['SYNCH_FRAME'])
 
     def test_wValue(self):
         self.assertEqual(self.setup.wValue, 0b100000000)
