@@ -256,10 +256,16 @@ class BytePlot(Qwt.QwtPlot):
 
     def new_custom_bytes(self, string):
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
+        to_remove = list()
         for cc in self.custom_curves:
             if cc not in byte_def_strings:
+                to_remove.append(cc)
                 self.custom_curves[cc].detach()
                 colors.append(self.custom_curves[cc].pen().brush().color().getRgb()[:-1])
+                del custom_bytes[cc]
+
+        for cc in to_remove:
+            del self.custom_curves[cc]
 
         for d in byte_def_strings:
             if not len(d) == 0:
@@ -309,6 +315,9 @@ class BytePlot(Qwt.QwtPlot):
         self.x_range = range
 
         self.row_added()
+
+    def clamp_axis(self, min, max):
+        pass
 
 
 class ByteScale(Qwt.QwtScaleDraw):
@@ -400,6 +409,7 @@ class USBGraph(QApplication):
         self.bytevalgroup.setLayout(self.groupvb)
         self.bytevalgroup.setMaximumHeight(100)
 
+        self.x_range_group = QGroupBox('Plot Window')
         self.plot_range = QSlider()
         self.plot_range.setOrientation(Qt.Qt.Horizontal)
         self.plot_range.setRange(10, 1000)
@@ -407,15 +417,26 @@ class USBGraph(QApplication):
         self.plot_range.setTickInterval(50)
         self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
         self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
-        self.plot_range.setMaximumHeight(50)
         self.plot_range_labels = QHBoxLayout()
-        self.llabel = QLabel('10')
-        self.llabel.setMaximumHeight(50)
-        self.plot_range_labels.addWidget(self.llabel)
+        self.plot_range_labels.addWidget(QLabel('10'))
         self.plot_range_labels.addWidget(self.plot_range)
-        self.rlabel = QLabel('1000')
-        self.rlabel.setMaximumHeight(50)
-        self.plot_range_labels.addWidget(self.rlabel)
+        self.plot_range_labels.addWidget(QLabel('1000'))
+        self.x_range_group.setLayout(self.plot_range_labels)
+        self.x_range_group.setMaximumHeight(100)
+
+        self.y_clamp_group = QGroupBox('Clamp Y-Axis')
+        self.y_clamp_group_layout = QHBoxLayout()
+        self.y_clamp_group_layout.addWidget(QLabel('Minimum:'))
+        self.y_min = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_min)
+        self.y_clamp_group_layout.addWidget(QLabel('Maximum:'))
+        self.y_max = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_max)
+        self.y_clamp_button = QPushButton('Apply')
+        self.y_clamp_button.clicked.connect(self.byteplot.clamp_axis)
+        self.y_clamp_group_layout.addWidget(self.y_clamp_button)
+        self.y_clamp_group.setLayout(self.y_clamp_group_layout)
+        self.y_clamp_group.setMaximumHeight(100)
         
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
@@ -430,9 +451,13 @@ class USBGraph(QApplication):
         self.main_area.addWidget(self.byteplot)
         self.main_area.setSizes([400,400])
 
+        self.lower_right_area = QVBoxLayout()
+        self.lower_right_area.addWidget(self.x_range_group)
+        self.lower_right_area.addWidget(self.y_clamp_group)
+
         self.lower_area = QHBoxLayout()
         self.lower_area.addWidget(self.bytevalgroup)
-        self.lower_area.addItem(self.plot_range_labels)
+        self.lower_area.addLayout(self.lower_right_area)
 
         self.vb = QVBoxLayout()
         self.vb.addWidget(self.main_area)
