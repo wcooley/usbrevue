@@ -398,9 +398,8 @@ class USBGraph(QApplication):
         self.groupvb = QVBoxLayout()
         self.groupvb.addWidget(self.bytevalwidget)
         self.bytevalgroup.setLayout(self.groupvb)
+        self.bytevalgroup.setMaximumHeight(100)
 
-        self.graphvb = QVBoxLayout()
-        self.graphvb.addWidget(self.byteplot)
         self.plot_range = QSlider()
         self.plot_range.setOrientation(Qt.Qt.Horizontal)
         self.plot_range.setRange(10, 1000)
@@ -408,22 +407,16 @@ class USBGraph(QApplication):
         self.plot_range.setTickInterval(50)
         self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
         self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
+        self.plot_range.setMaximumHeight(50)
         self.plot_range_labels = QHBoxLayout()
-        self.plot_range_labels.addWidget(QLabel('10'))
+        self.llabel = QLabel('10')
+        self.llabel.setMaximumHeight(50)
+        self.plot_range_labels.addWidget(self.llabel)
         self.plot_range_labels.addWidget(self.plot_range)
-        self.plot_range_labels.addWidget(QLabel('1000'))
-        self.graphvb.addItem(self.plot_range_labels)
-
-        self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
-                                            Qwt.QwtPlot.yLeft,
-                                            Qwt.QwtPicker.RectSelection,
-                                            Qwt.QwtPlotPicker.RectRubberBand,
-                                            Qwt.QwtPicker.ActiveOnly,
-                                            self.byteplot.canvas())
-        self.bytepicker.selected.connect(self.byte_picked)
-        self.bytepicker.appended.connect(self.byte_appended)
-        self.bytepicker.moved.connect(self.byte_moved)
-
+        self.rlabel = QLabel('1000')
+        self.rlabel.setMaximumHeight(50)
+        self.plot_range_labels.addWidget(self.rlabel)
+        
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
@@ -432,15 +425,20 @@ class USBGraph(QApplication):
 
         self.bytevalwidget.byte_vals_changed.connect(self.byteplot.new_custom_bytes)
 
-        self.vb = QVBoxLayout()
-        self.vb.addWidget(self.byteview)
-        self.vb.addWidget(self.bytevalgroup)
+        self.main_area = QSplitter()
+        self.main_area.addWidget(self.byteview)
+        self.main_area.addWidget(self.byteplot)
+        self.main_area.setSizes([400,400])
 
-        self.hb = QHBoxLayout()
-        self.hb.addItem(self.vb)
-        self.hb.addItem(self.graphvb)
+        self.lower_area = QHBoxLayout()
+        self.lower_area.addWidget(self.bytevalgroup)
+        self.lower_area.addItem(self.plot_range_labels)
+
+        self.vb = QVBoxLayout()
+        self.vb.addWidget(self.main_area)
+        self.vb.addItem(self.lower_area)
         
-        self.w.setLayout(self.hb)
+        self.w.setLayout(self.vb)
         self.w.show()
 
         self.pcapthread = PcapThread()
