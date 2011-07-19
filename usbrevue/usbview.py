@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 import sys
+from optparse import OptionParser
 import pcapy
 from usbrevue import Packet, USBMON_TRANSFER_TYPE
+import codegen
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
                          QPersistentModelIndex, QTimer, QString
@@ -16,16 +18,18 @@ class PcapThread(QThread):
     eof = pyqtSignal()
     dump_opened = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, source='-', dest='-'):
         QThread.__init__(self)
+        self.source = source
+        self.dest = dest
 
     def run(self):
-        if sys.stdin.isatty():
+        if self.source == '-' and sys.stdin.isatty():
             return
-        pcap = pcapy.open_offline('-')
+        pcap = pcapy.open_offline(self.source)
         # don't output anything unless we're being piped/redirected
-        if not sys.stdout.isatty():
-            out = pcap.dump_open('-')
+        if not (self.dest == '-' and sys.stdout.isatty()):
+            out = pcap.dump_open(self.dest)
             sys.stdout.flush()
             self.dump_opened.emit(out)
 
@@ -239,6 +243,8 @@ class PacketView(QTreeView):
         self.pause_toggle = QAction("Pause capture", self)
         self.pause_toggle.setCheckable(True)
         self.pause_toggle.setChecked(False)
+        self.copy_as_code_act = QAction("Copy as libusb code", self)
+        self.copy_as_code_act.triggered.connect(self.copy_as_code)
         self.delegate = HexEditDelegate()
         self.setItemDelegateForColumn(DATA_COL, self.delegate)
         self.autoscroll_timer = QTimer(self)
@@ -248,6 +254,7 @@ class PacketView(QTreeView):
     def contextMenuEvent(self, event):
         menu = QMenu()
         menu.addAction(self.dump_selected_act)
+        menu.addAction(self.copy_as_code_act)
         menu.addSeparator()
         menu.addAction(self.remove_selected_act)
         menu.addAction(self.remove_all_act)
@@ -257,6 +264,27 @@ class PacketView(QTreeView):
         menu.addSeparator()
         menu.addAction(self.pause_toggle)
         menu.exec_(event.globalPos())
+
+    def copy_as_code(self):
+        selected = self.selectionModel().selectedRows()
+        selected.sort(cmp=lambda x,y: cmp(x.row(), y.row()))
+        s = ''
+        deviceset = set()
+        for idx in selected:
+            pack = self.model().data(idx, Qt.UserRole).toPyObject()
+            s += codegen.packet_to_libusb_code(pack)
+            deviceset.add((pack.busnum, pack.devnum))
+        QApplication.clipboard().setText(s)
+        if len(deviceset) > 1:
+            msgbox = QMessageBox()
+            msgbox.setText("Warning: code generated for multiple devices")
+            msgbox.setInformativeText("This is probably not what you want. Try filtering by device and/or bus number.")
+            detailtext = 'Devices in selection:\n'
+            for devtuple in deviceset:
+                detailtext += 'Bus %d, device %d\n' % devtuple
+            msgbox.setDetailedText(detailtext)
+            msgbox.setIcon(QMessageBox.Warning)
+            msgbox.exec_()
 
     def remove_selected(self):
         rows = self.selectionModel().selectedRows()
@@ -274,7 +302,7 @@ class PacketView(QTreeView):
 
         for row in xrange(start, end+1):
             idx = self.model().index(row, 0, parent)
-            pack = self.model().data(idx, Qt.UserRole).toPyObject();
+            pack = self.model().data(idx, Qt.UserRole).toPyObject()
             if isinstance(pack, QString):
                 self.setFirstColumnSpanned(row, parent, True)
 
@@ -356,7 +384,7 @@ data:\tA list of transmitted bytes of data"""
 
 
 class USBView(QApplication):
-    def __init__(self, argv):
+    def __init__(self, argv, options, args):
         QApplication.__init__(self, argv)
         self.w = QWidget()
         self.w.resize(800, 600)
@@ -390,13 +418,16 @@ class USBView(QApplication):
         self.w.setLayout(self.vb)
         self.w.show()
 
-        self.pcapthread = PcapThread()
+        if sys.stdin.isatty() and len(args) > 0:
+            self.pcapthread = PcapThread(source=args[0])
+        else:
+            self.pcapthread = PcapThread()
         self.pause_toggled(False)
         self.pcapthread.dump_opened.connect(self.dump_opened)
         self.pcapthread.start()
 
         self.dumper = None
-        self.passthru = True
+        self.passthru_toggled(options.passthru)
         self.filterexpr = None
 
     def new_annotation(self):
@@ -409,6 +440,8 @@ class USBView(QApplication):
 
     def passthru_toggled(self, state):
         self.passthru = state
+        if self.packetview.passthru_toggle.isChecked() != state:
+            self.packetview.passthru_toggle.setChecked(state)
 
     def pause_toggled(self, state):
         if state:
@@ -442,6 +475,10 @@ class USBView(QApplication):
 
 
 if __name__ == '__main__':
-    app = USBView(sys.argv)
+    parser = OptionParser()
+    parser.add_option("-p", "--passthru", default=False, action="store_true",
+            help="Start with passthru enabled.")
+    (options, args) = parser.parse_args()
+    app = USBView(sys.argv, options, args)
     sys.exit(app.exec_())
 
