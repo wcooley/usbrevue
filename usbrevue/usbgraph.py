@@ -256,10 +256,16 @@ class BytePlot(Qwt.QwtPlot):
 
     def new_custom_bytes(self, string):
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
+        to_remove = list()
         for cc in self.custom_curves:
             if cc not in byte_def_strings:
+                to_remove.append(cc)
                 self.custom_curves[cc].detach()
                 colors.append(self.custom_curves[cc].pen().brush().color().getRgb()[:-1])
+                del custom_bytes[cc]
+
+        for cc in to_remove:
+            del self.custom_curves[cc]
 
         for d in byte_def_strings:
             if not len(d) == 0:
@@ -309,6 +315,9 @@ class BytePlot(Qwt.QwtPlot):
         self.x_range = range
 
         self.row_added()
+
+    def clamp_axis(self, min, max):
+        pass
 
 
 class ByteScale(Qwt.QwtScaleDraw):
@@ -398,9 +407,9 @@ class USBGraph(QApplication):
         self.groupvb = QVBoxLayout()
         self.groupvb.addWidget(self.bytevalwidget)
         self.bytevalgroup.setLayout(self.groupvb)
+        self.bytevalgroup.setMaximumHeight(100)
 
-        self.graphvb = QVBoxLayout()
-        self.graphvb.addWidget(self.byteplot)
+        self.x_range_group = QGroupBox('Plot Window')
         self.plot_range = QSlider()
         self.plot_range.setOrientation(Qt.Qt.Horizontal)
         self.plot_range.setRange(10, 1000)
@@ -412,18 +421,23 @@ class USBGraph(QApplication):
         self.plot_range_labels.addWidget(QLabel('10'))
         self.plot_range_labels.addWidget(self.plot_range)
         self.plot_range_labels.addWidget(QLabel('1000'))
-        self.graphvb.addItem(self.plot_range_labels)
+        self.x_range_group.setLayout(self.plot_range_labels)
+        self.x_range_group.setMaximumHeight(100)
 
-        self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
-                                            Qwt.QwtPlot.yLeft,
-                                            Qwt.QwtPicker.RectSelection,
-                                            Qwt.QwtPlotPicker.RectRubberBand,
-                                            Qwt.QwtPicker.ActiveOnly,
-                                            self.byteplot.canvas())
-        self.bytepicker.selected.connect(self.byte_picked)
-        self.bytepicker.appended.connect(self.byte_appended)
-        self.bytepicker.moved.connect(self.byte_moved)
-
+        self.y_clamp_group = QGroupBox('Clamp Y-Axis')
+        self.y_clamp_group_layout = QHBoxLayout()
+        self.y_clamp_group_layout.addWidget(QLabel('Minimum:'))
+        self.y_min = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_min)
+        self.y_clamp_group_layout.addWidget(QLabel('Maximum:'))
+        self.y_max = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_max)
+        self.y_clamp_button = QPushButton('Apply')
+        self.y_clamp_button.clicked.connect(self.byteplot.clamp_axis)
+        self.y_clamp_group_layout.addWidget(self.y_clamp_button)
+        self.y_clamp_group.setLayout(self.y_clamp_group_layout)
+        self.y_clamp_group.setMaximumHeight(100)
+        
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
@@ -432,15 +446,24 @@ class USBGraph(QApplication):
 
         self.bytevalwidget.byte_vals_changed.connect(self.byteplot.new_custom_bytes)
 
-        self.vb = QVBoxLayout()
-        self.vb.addWidget(self.byteview)
-        self.vb.addWidget(self.bytevalgroup)
+        self.main_area = QSplitter()
+        self.main_area.addWidget(self.byteview)
+        self.main_area.addWidget(self.byteplot)
+        self.main_area.setSizes([400,400])
 
-        self.hb = QHBoxLayout()
-        self.hb.addItem(self.vb)
-        self.hb.addItem(self.graphvb)
+        self.lower_right_area = QVBoxLayout()
+        self.lower_right_area.addWidget(self.x_range_group)
+        self.lower_right_area.addWidget(self.y_clamp_group)
+
+        self.lower_area = QHBoxLayout()
+        self.lower_area.addWidget(self.bytevalgroup)
+        self.lower_area.addLayout(self.lower_right_area)
+
+        self.vb = QVBoxLayout()
+        self.vb.addWidget(self.main_area)
+        self.vb.addItem(self.lower_area)
         
-        self.w.setLayout(self.hb)
+        self.w.setLayout(self.vb)
         self.w.show()
 
         self.pcapthread = PcapThread()
