@@ -54,14 +54,14 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'urb'), 12345)
+            self.assertEqual(packet.urb, 12345)
 
     def test_mod_event_type(self):
         self.tmpfile.write('event_type = "E"')
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'event_type'), 'E')
+            self.assertEqual(packet.event_type, 'E')
 
 
     def test_mod_xfer_type(self):
@@ -69,7 +69,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'xfer_type'), 3)
+            self.assertEqual(packet.xfer_type, 3)
 
 
     def test_mod_epnum(self):
@@ -77,7 +77,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'epnum'), 55)
+            self.assertEqual(packet.epnum, 55)
 
 
     def test_mod_devnum(self):
@@ -85,7 +85,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'devnum'), 12)
+            self.assertEqual(packet.devnum, 12)
 
 
     def test_mod_busnum(self):
@@ -93,7 +93,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'busnum'), 32)
+            self.assertEqual(packet.busnum, 32)
 
 
     def test_mod_flag_setup(self):
@@ -101,7 +101,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'flag_setup'), '1')
+            self.assertEqual(packet.flag_setup, '1')
 
 
     def test_mod_flag_data(self):
@@ -109,7 +109,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'flag_data'), '!')
+            self.assertEqual(packet.flag_data, '!')
 
 
     def test_mod_ts_sec(self):
@@ -117,7 +117,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'ts_sec'), 9876543210)
+            self.assertEqual(packet.ts_sec, 9876543210)
 
 
     def test_mod_ts_usec(self):
@@ -125,7 +125,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'ts_usec'), 1234567890)
+            self.assertEqual(packet.ts_usec, 1234567890)
 
 
     def test_mod_status(self):
@@ -133,7 +133,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'status'), 42)
+            self.assertEqual(packet.status, 42)
 
 
     def test_mod_length(self):
@@ -141,7 +141,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'length'), 16)
+            self.assertEqual(packet.length, 16)
 
 
     def test_mod_len_cap(self):
@@ -149,7 +149,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'len_cap'), 1)
+            self.assertEqual(packet.len_cap, 1)
 
 
     def test_mod_setup(self):
@@ -158,7 +158,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
         for packet in packet_generator():
             if packet.flag_setup == "s":
                 self.modifier.apply_routine_file(packet)
-                self.assertEqual(getattr(packet, 'setup'), [12])
+                self.assertEqual(packet.setup, [12])
 
 
     def test_mod_error_count(self):
@@ -167,7 +167,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
         for packet in packet_generator():
             if packet.xfer_type == 0:
                 self.modifier.apply_routine_file(packet)
-                self.assertEqual(getattr(packet, 'error_count'), 99)
+                self.assertEqual(packet.error_count, 99)
 
 
     def test_mod_numdesc(self):
@@ -176,7 +176,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
         for packet in packet_generator():
             if packet.xfer_type == 0:
                 self.modifier.apply_routine_file(packet)
-                self.assertEqual(getattr(packet, 'numdesc'), 200)
+                self.assertEqual(packet.numdesc, 200)
 
 
     def test_mod_interval(self):
@@ -185,7 +185,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
         for packet in packet_generator():
             if packet.xfer_type in [0, 1]:
                 self.modifier.apply_routine_file(packet)
-                self.assertEqual(getattr(packet, 'interval'), 2)
+                self.assertEqual(packet.interval, 2)
 
 
     def test_mod_start_frame(self):
@@ -194,7 +194,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
         for packet in packet_generator():
             if packet.xfer_type == 0:
                 self.modifier.apply_routine_file(packet)
-                self.assertEqual(getattr(packet, 'start_frame'), 4)
+                self.assertEqual(packet.start_frame, 4)
 
 
     def test_mod_xfer_flags(self):
@@ -202,7 +202,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'xfer_flags'), 49294)
+            self.assertEqual(packet.xfer_flags, 49294)
 
 
     def test_mod_ndesc(self):
@@ -210,7 +210,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
         for packet in packet_generator():
             self.modifier.apply_routine_file(packet)
-            self.assertEqual(getattr(packet, 'ndesc'), 847934)
+            self.assertEqual(packet.ndesc, 847934)
 
 
 
