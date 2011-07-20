@@ -23,15 +23,15 @@
 
 from __future__ import division
 
-import pcapy
-import tutil
-import usbmodify
-from usbrevue import Packet
-import unittest
-import struct
 import os
+import struct
+import unittest
+
+import pcapy
 
 from tutil import *
+import usbmodify
+from usbrevue import Packet
 
 class ModAttrsByRoutineFile(unittest.TestCase):
     """Change each packet attribute to some value. All tests should
