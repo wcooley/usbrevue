@@ -317,7 +317,12 @@ class BytePlot(Qwt.QwtPlot):
         self.row_added()
 
     def clamp_axis(self, min, max):
-        pass
+        if min >= 0 and max >= 0:
+            self.setAxisScale(0, min, max)
+        else:
+            self.setAxisAutoScale(0)
+
+        self.replot()
 
 
 class ByteScale(Qwt.QwtScaleDraw):
@@ -391,6 +396,64 @@ class ByteValWidget(QWidget):
         self.byte_vals_changed.emit(str(self.y_axis_edit.text()))
 
 
+class ClampYAxisWidget(QGroupBox):
+    """Let the user specify max and min values for the y-axis."""
+
+    y_axis_vals_changed = pyqtSignal(int, int)
+
+    def __init__(self, title, parent=None):
+        QGroupBox.__init__(self, title, parent)
+
+        self.y_clamp_group_layout = QHBoxLayout()
+        self.y_clamp_group_layout.addWidget(QLabel('Minimum:'))
+        self.y_min = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_min)
+        self.y_clamp_group_layout.addWidget(QLabel('Maximum:'))
+        self.y_max = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_max)
+        self.y_clamp_button = QPushButton('Apply')
+        self.y_clamp_button.clicked.connect(self.clicked)
+        self.y_clamp_group_layout.addWidget(self.y_clamp_button)
+        self.setLayout(self.y_clamp_group_layout)
+        self.setMaximumHeight(100)
+        self.resize(300, 100)
+
+    def clicked(self):
+        if not self.y_min.text() and not self.y_max.text():
+            self.y_axis_vals_changed.emit(-1, -1)
+        elif self.y_min.text() and self.y_max.text():
+            min = int(str(self.y_min.text()), 0)
+            max = int(str(self.y_max.text()), 0)
+
+            self.y_axis_vals_changed.emit(min, max)
+        else:
+            msg = QMessageBox()
+            msg.setText('Please specify a minimum and maximum value, or clear both to reset.')
+            msg.exec_()
+
+
+class PlotWindowSliderWidget(QGroupBox):
+    """Let the user change the width of the plot window."""
+    value_changed = pyqtSignal(int)
+
+    def __init__(self, title, parent=None):
+        QGroupBox.__init__(self, title, parent)
+
+        self.plot_range = QSlider()
+        self.plot_range.setOrientation(Qt.Qt.Horizontal)
+        self.plot_range.setRange(10, 1000)
+        self.plot_range.setValue(200)
+        self.plot_range.setTickInterval(50)
+        self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
+        self.plot_range.valueChanged.connect(lambda val: self.value_changed.emit(val))
+        self.plot_range_labels = QHBoxLayout()
+        self.plot_range_labels.addWidget(QLabel('10'))
+        self.plot_range_labels.addWidget(self.plot_range)
+        self.plot_range_labels.addWidget(QLabel('1000'))
+        self.setLayout(self.plot_range_labels)
+        self.setMaximumHeight(100)
+
+
 class USBGraph(QApplication):
     def __init__(self, argv):
         QApplication.__init__(self, argv)
@@ -408,36 +471,14 @@ class USBGraph(QApplication):
         self.groupvb.addWidget(self.bytevalwidget)
         self.bytevalgroup.setLayout(self.groupvb)
         self.bytevalgroup.setMaximumHeight(100)
+        self.bytevalgroup.setMinimumWidth(400)
 
-        self.x_range_group = QGroupBox('Plot Window')
-        self.plot_range = QSlider()
-        self.plot_range.setOrientation(Qt.Qt.Horizontal)
-        self.plot_range.setRange(10, 1000)
-        self.plot_range.setValue(200)
-        self.plot_range.setTickInterval(50)
-        self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
-        self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
-        self.plot_range_labels = QHBoxLayout()
-        self.plot_range_labels.addWidget(QLabel('10'))
-        self.plot_range_labels.addWidget(self.plot_range)
-        self.plot_range_labels.addWidget(QLabel('1000'))
-        self.x_range_group.setLayout(self.plot_range_labels)
-        self.x_range_group.setMaximumHeight(100)
+        self.x_range = PlotWindowSliderWidget('Plot Window')
+        self.x_range.value_changed.connect(self.byteplot.change_x_range)
 
-        self.y_clamp_group = QGroupBox('Clamp Y-Axis')
-        self.y_clamp_group_layout = QHBoxLayout()
-        self.y_clamp_group_layout.addWidget(QLabel('Minimum:'))
-        self.y_min = QLineEdit()
-        self.y_clamp_group_layout.addWidget(self.y_min)
-        self.y_clamp_group_layout.addWidget(QLabel('Maximum:'))
-        self.y_max = QLineEdit()
-        self.y_clamp_group_layout.addWidget(self.y_max)
-        self.y_clamp_button = QPushButton('Apply')
-        self.y_clamp_button.clicked.connect(self.byteplot.clamp_axis)
-        self.y_clamp_group_layout.addWidget(self.y_clamp_button)
-        self.y_clamp_group.setLayout(self.y_clamp_group_layout)
-        self.y_clamp_group.setMaximumHeight(100)
-        
+        self.y_clamp = ClampYAxisWidget('Clamp Y Axis')
+        self.y_clamp.y_axis_vals_changed.connect(self.byteplot.clamp_axis)
+
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
         self.bytemodel.col_added.connect(self.byteview.col_added)
@@ -452,8 +493,8 @@ class USBGraph(QApplication):
         self.main_area.setSizes([400,400])
 
         self.lower_right_area = QVBoxLayout()
-        self.lower_right_area.addWidget(self.x_range_group)
-        self.lower_right_area.addWidget(self.y_clamp_group)
+        self.lower_right_area.addWidget(self.x_range)
+        self.lower_right_area.addWidget(self.y_clamp)
 
         self.lower_area = QHBoxLayout()
         self.lower_area.addWidget(self.bytevalgroup)
