@@ -331,8 +331,9 @@ class BytePlot(Qwt.QwtPlot):
             curve.setData(ByteData(x[length-self.x_range:length], y[length-self.x_range:length], mask[length-self.x_range:length]))
             self.setAxisScale(2, length-self.x_range, length)
         else:
-            curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
-
+            print len(x), len(y)
+            curve.setData(ByteData(x[:min(length, self.x_range)], y[:min(length, self.x_range)], mask[:min(length, self.x_range)]))
+                        
     def change_x_range(self, range):
         self.x_range = range
 
