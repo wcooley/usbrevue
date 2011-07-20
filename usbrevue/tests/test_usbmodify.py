@@ -43,7 +43,7 @@ class ModAttrsByRoutineFile(unittest.TestCase):
     def setUp(self):
         self.tmpfile = tempfile.NamedTemporaryFile('w', 0) # buf=0 makes it
                                                            # show up immediately
-        self.modifier = usbmodify.Modifier('', self.tmpfile.name, '')
+        self.modifier = usbmodify.Modifier(None, self.tmpfile.name, None)
 
     def tearDown(self):
         self.tmpfile.close()    # tempfile deletes on close
@@ -227,7 +227,7 @@ class ModDataByExp(unittest.TestCase):
     """
 
     def test_add(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] + data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] + data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -236,7 +236,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_sub(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] - data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] - data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -245,7 +245,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_mult(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] * data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] * data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -254,7 +254,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_div(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] / (data[2] + 1)'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] / (data[2] + 1)'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -263,7 +263,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_and(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] & data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] & data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -272,7 +272,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_or(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] | data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] | data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -281,7 +281,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_not(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = ~ data[1]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = ~ data[1]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -290,7 +290,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_bit_xor(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] ^ data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] ^ data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -299,7 +299,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_and(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] and data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] and data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -308,7 +308,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_or(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = data[1] or data[2]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = data[1] or data[2]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -317,7 +317,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_not(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = not data[1]'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = not data[1]'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -326,7 +326,7 @@ class ModDataByExp(unittest.TestCase):
 
 
     def test_logical_xor(self):
-        modifier = usbmodify.Modifier('', '', ['data[0] = bool(data[1]) ^ bool(data[2])'])
+        modifier = usbmodify.Modifier(None, None, ['data[0] = bool(data[1]) ^ bool(data[2])'])
 
         for packet in packet_generator():
             modifier.apply_cmdline_exps(packet)
@@ -340,7 +340,7 @@ class BadData(unittest.TestCase):
 
     def setUp(self):
         self.tmpfile = tempfile.NamedTemporaryFile('w', 0)
-        self.modifier = usbmodify.Modifier('', self.tmpfile.name, '')
+        self.modifier = usbmodify.Modifier(None, self.tmpfile.name, None)
 
     def tearDown(self):
         self.tmpfile.close()
