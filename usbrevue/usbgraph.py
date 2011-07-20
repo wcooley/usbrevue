@@ -35,31 +35,33 @@ import re
 class ByteModel(QAbstractTableModel):
     """Qt Model for byte data."""
 
-    row_added = pyqtSignal()
-    col_added = pyqtSignal()
-    cb_checked = pyqtSignal(int)
-    cb_unchecked = pyqtSignal(int)
+    row_added = pyqtSignal() # emit when a new usb packet is received
+    col_added = pyqtSignal() # emit when a new usb packet's data payload is larger than any we've seen before
+    cb_checked = pyqtSignal(int) # emit when a column checkbox is checked
+    cb_unchecked = pyqtSignal(int) # emit when a column checkbox is unchecked
 
     def __init__(self, parent=None):
         QAbstractTableModel.__init__(self, parent)
 
+        # to keep track of which column checkboxes are checked
         self.cb_states = list()
 
 
     def rowCount(self, parent = QModelIndex()):
-        if len(bytes) > 0:
-            return len(bytes[0])+1
+        if len(single_bytes) > 0:
+            # all byte arrays will have the same length, so just get the lowest one, since if there are any bytes at all, then we've have that one
+            return len(single_bytes[0])+1
         else:
             return 1
 
     def columnCount(self, parent = QModelIndex()):
-        return len(bytes)
+        return len(single_bytes)
 
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
         if row != 0:
-            val = bytes[col][row-1]
+            val = single_bytes[col][row-1]
 
         if role == Qt.Qt.DisplayRole:
             if row == 0:
@@ -103,21 +105,21 @@ class ByteModel(QAbstractTableModel):
 
     def new_packet(self, packet):
         if len(packet.data) > 0:
-            if len(bytes) > 0:
-                l = len(bytes[0])
+            if len(single_bytes) > 0:
+                l = len(single_bytes[0])
             else:
                 l = 0
-            w = len(bytes)
+            w = len(single_bytes)
 
-            first_row = True if len(bytes) == 0 else False
-            if len(packet.data) > len(bytes):
-                self.beginInsertColumns(QModelIndex(), w, max(len(bytes), len(packet.data) - 1))
-                for i in range(len(packet.data) - len(bytes)):
+            first_row = True if len(single_bytes) == 0 else False
+            if len(packet.data) > len(single_bytes):
+                self.beginInsertColumns(QModelIndex(), w, max(len(single_bytes), len(packet.data) - 1))
+                for i in range(len(packet.data) - len(single_bytes)):
                     if first_row:
-                        bytes.append(list())
+                        single_bytes.append(list())
                         self.cb_states.append(0)
                     else:
-                        bytes.append([-1] * len(bytes[0]))
+                        single_bytes.append([-1] * len(single_bytes[0]))
                         self.cb_states.append(0)
                 self.endInsertColumns()
                 self.col_added.emit()
@@ -125,20 +127,20 @@ class ByteModel(QAbstractTableModel):
             self.beginInsertRows(QModelIndex(), l, l)
             offset = 0
             for b in packet.data:
-                bytes[offset].append(b)
+                single_bytes[offset].append(b)
                 offset += 1
-            while offset < len(bytes):
-                bytes[offset].append(-1)
+            while offset < len(single_bytes):
+                single_bytes[offset].append(-1)
                 offset += 1
             self.endInsertRows()
             self.row_added.emit()
 
             for cb in custom_bytes:
-                cb_run = re.sub(r'\[(\d+)\]', r'bytes[\1][-1]', cb)
+                cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
 
-                composite_bytes = re.findall(r'bytes\[(\d+)\]', cb_run)
+                composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
 
-                if not -1 in [bytes[int(c)][-1] for c in composite_bytes]:
+                if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
                     try:
                         custom_bytes[cb].append(eval(cb_run))
                     except SyntaxError:
@@ -242,10 +244,10 @@ class BytePlot(Qwt.QwtPlot):
         self.setAxisTitle(2, "Packet sequence number")
 
     def row_added(self):
-        l = len(bytes[0])
+        l = len(single_bytes[0])
         for c in self.curves:
-            mask = [j >= 0 for j in bytes[c]]
-            self.set_curve_data(l, self.curves[c], range(l), bytes[c], mask)
+            mask = [j >= 0 for j in single_bytes[c]]
+            self.set_curve_data(l, self.curves[c], range(l), single_bytes[c], mask)
         for c in self.custom_curves:
             mask = [j >= 0 for j in custom_bytes[c]]
             self.set_curve_data(l, self.custom_curves[c], range(l), custom_bytes[c], mask)
@@ -254,10 +256,10 @@ class BytePlot(Qwt.QwtPlot):
 
     def cb_checked(self, column):
         if column not in self.curves:
-            l = len(bytes[0])
-            mask = [j >= 0 for j in bytes[column]]
+            l = len(single_bytes[0])
+            mask = [j >= 0 for j in single_bytes[column]]
             self.curves[column]= ByteCurve("Byte " + str(column))
-            self.set_curve_data(l, self.curves[column], range(l), bytes[column], mask)
+            self.set_curve_data(l, self.curves[column], range(l), single_bytes[column], mask)
 
         r, g, b = colors.pop(random.randint(0, len(colors)-1))
         color = QColor(r, g, b)
@@ -289,17 +291,17 @@ class BytePlot(Qwt.QwtPlot):
 
         for d in byte_def_strings:
             if not len(d) == 0:
-                d_run = re.sub(r'\[(\d+)\]', r'bytes[\1][pos]', d)
+                d_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][pos]', d)
 
                 # find out what byte values are being used
-                composite_bytes = re.findall(r'bytes\[(\d+)\]', d_run)
+                composite_bytes = re.findall(r'single_bytes\[(\d+)\]', d_run)
 
                 if d not in self.custom_curves:
                     self.custom_curves[d] = ByteCurve(d)
                     custom_bytes[d] = list()
                     self.custom_curves[d].attach(self)
-                    for pos in range(len(bytes[0])):
-                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                    for pos in range(len(single_bytes[0])):
+                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             try:
                                 custom_bytes[d].append(eval(d_run))
                             except SyntaxError:
@@ -308,14 +310,14 @@ class BytePlot(Qwt.QwtPlot):
                         else:
                             custom_bytes[d].append(-1)
                 else:
-                    for pos in range(len(custom_bytes[d]), len(bytes[0])):
-                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                    for pos in range(len(custom_bytes[d]), len(single_bytes[0])):
+                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             custom_bytes[d].append(eval(d_run))
                         else:
                             custom_bytes[d].append(-1)
 
                 mask = [j >= 0 for j in custom_bytes[d]]
-                self.set_curve_data(len(bytes[0]), self.custom_curves[d], range(len(bytes[0])), custom_bytes[d], mask)
+                self.set_curve_data(len(single_bytes[0]), self.custom_curves[d], range(len(single_bytes[0])), custom_bytes[d], mask)
 
                 r, g, b = colors.pop(random.randint(0, len(colors)-1))
                 color = QColor(r, g, b)
@@ -544,7 +546,7 @@ class USBGraph(QApplication):
         pass
 
 
-bytes = list()
+single_bytes = list()
 custom_bytes = {}
 
 
