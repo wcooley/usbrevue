@@ -255,6 +255,11 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 class ModByModule(unittest.TestCase):
     """Change different packet attributes with a user-supplied module."""
 
+    def setUp(self):
+        self.modifier = usbmodify.Modifier('', 'test_routine_file', '')
+
+    def tearDown(self):
+        os.remove('test_routine_file')
 
 
 
@@ -376,7 +381,11 @@ class ModDataByExp(unittest.TestCase):
 class BadData(unittest.TestCase):
     """Check that invalid attribute values will be rejected."""
 
-    modifier = usbmodify.Modifier('', 'test_routine_file', '')
+    def setUp(self):
+        self.modifier = usbmodify.Modifier('', 'test_routine_file', '')
+
+    def tearDown(self):
+        os.remove('test_routine_file')
 
     def test_bad_urb(self):
         f = open('test_routine_file', 'w')
