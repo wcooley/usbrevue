@@ -25,7 +25,8 @@ from usbview import PcapThread
 from usbrevue import Packet
 from PyQt4 import Qt
 from PyQt4.QtGui import *
-from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QByteArray, pyqtSignal, QTimer
+from PyQt4.QtCore import (QAbstractTableModel, QModelIndex, QVariant,
+                          QString, QByteArray, pyqtSignal, QTimer)
 import PyQt4.Qwt5 as Qwt
 import numpy as np
 import random
@@ -36,7 +37,9 @@ class ByteModel(QAbstractTableModel):
     """Qt Model for byte data."""
 
     row_added = pyqtSignal() # emit when a new usb packet is received
-    col_added = pyqtSignal() # emit when a new usb packet's data payload is larger than any we've seen before
+    # emit when a new usb packet's data payload is larger than any
+    # we've seen before
+    col_added = pyqtSignal()
     cb_checked = pyqtSignal(int) # emit when a column checkbox is checked
     cb_unchecked = pyqtSignal(int) # emit when a column checkbox is unchecked
 
@@ -49,7 +52,9 @@ class ByteModel(QAbstractTableModel):
 
     def rowCount(self, parent = QModelIndex()):
         if len(single_bytes) > 0:
-            # all byte arrays will have the same length, so just get the lowest one, since if there are any bytes at all, then we've have that one
+            # all byte arrays will have the same length, so just get
+            # the lowest one, since if there are any bytes at all,
+            # then we've have that one
             return len(single_bytes[0])+1
         else:
             return 1
@@ -113,7 +118,11 @@ class ByteModel(QAbstractTableModel):
 
             first_row = True if len(single_bytes) == 0 else False
             if len(packet.data) > len(single_bytes):
-                self.beginInsertColumns(QModelIndex(), w, max(len(single_bytes), len(packet.data) - 1))
+                self.beginInsertColumns(QModelIndex(),
+                                        w,
+                                        max(len(single_bytes),
+                                            len(packet.data) - 1))
+
                 for i in range(len(packet.data) - len(single_bytes)):
                     if first_row:
                         single_bytes.append(list())
@@ -136,18 +145,18 @@ class ByteModel(QAbstractTableModel):
             self.row_added.emit()
 
             for cb in custom_bytes:
-                cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
+                if cb in custom_bytes:
+                    cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
+                    
+                    composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
 
-                composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
-
-                if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
-                    try:
-                        custom_bytes[cb].append(eval(cb_run))
-                    except SyntaxError:
-                        #TODO: handle
-                        pass
-                else:
-                    custom_bytes[cb].append(-1)
+                    if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
+                        try:
+                            custom_bytes[cb].append(eval(cb_run))
+                        except Exception:
+                            pass
+                    else:
+                        custom_bytes[cb].append(-1)
                     
 
 
@@ -292,7 +301,7 @@ class BytePlot(Qwt.QwtPlot):
         for d in byte_def_strings:
             if not len(d) == 0:
                 d_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][pos]', d)
-
+                    
                 # find out what byte values are being used
                 composite_bytes = re.findall(r'single_bytes\[(\d+)\]', d_run)
 
@@ -304,9 +313,11 @@ class BytePlot(Qwt.QwtPlot):
                         if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             try:
                                 custom_bytes[d].append(eval(d_run))
-                            except SyntaxError:
-                                #TODO: handle
-                                pass
+                            except Exception, e:
+                                msg = QMessageBox()
+                                msg.setText('There was an error understanding a custom byte value:\n' + e.message)
+                                msg.exec_()
+                                break
                         else:
                             custom_bytes[d].append(-1)
                 else:
@@ -318,7 +329,7 @@ class BytePlot(Qwt.QwtPlot):
 
                 mask = [j >= 0 for j in custom_bytes[d]]
                 self.set_curve_data(len(single_bytes[0]), self.custom_curves[d], range(len(single_bytes[0])), custom_bytes[d], mask)
-
+                
                 r, g, b = colors.pop(random.randint(0, len(colors)-1))
                 color = QColor(r, g, b)
                 self.custom_curves[d].setPen(QPen(QBrush(color), 2))
