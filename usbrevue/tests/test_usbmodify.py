@@ -34,6 +34,57 @@ from tutil import *
 import usbmodify
 from usbrevue import Packet
 
+# Why write programs when you can write programs that write programs?
+#
+# Rather than a lot of nearly-identical test functions, generate test functions
+# based on data.
+#
+# See: http://stackoverflow.com/q/2798956/627003
+
+ModAttrsByRoutineFileBasic_test_data = (
+    ('urb = 12345',         'urb',              12345),
+    ('event_type = "E"',    'event_type',       'E'),
+    ('xfer_type = 3',       'xfer_type',        3),
+    ('epnum = 55',          'epnum',            55),
+    ('devnum = 12',         'devnum',           12),
+    ('busnum = 32',         'busnum',           32),
+    ('flag_setup = "1"',    'flag_setup',       '1'),
+    ('flag_data = "!"',     'flag_data',        '!'),
+    ('ts_sec = 9876543210', 'ts_sec',           9876543210),
+    ('ts_usec = 1234567890', 'ts_usec',         1234567890),
+    ('status = 42',         'status',           42),
+    ('length = 16',         'length',           16),
+    ('len_cap = 1',         'len_cap',          1),
+    ('xfer_flags = 49294',  'xfer_flags',       49294),
+    ('ndesc = 847934',      'ndesc',            847934),
+)
+
+class ModAttrsByRoutineFileBasic(unittest.TestCase):
+    def setUp(self):
+        self.tmpfile = tempfile.NamedTemporaryFile('w', 0) # buf=0 makes it
+                                                           # show up immediately
+        self.modifier = usbmodify.Modifier(None, self.tmpfile.name, None)
+
+    def tearDown(self):
+        self.tmpfile.close()    # tempfile deletes on close
+
+def ModAttrsByRoutineFileBasic_create_test(line, attr, expected):
+    """Manufacture a test function"""
+    def do_test_expected(self):
+        self.tmpfile.write(line)
+
+        for packet in packet_generator():
+            self.modifier.apply_routine_file(packet)
+            self.assertEqual(getattr(packet, attr), expected)
+    return do_test_expected
+
+# Iterate through test data and create and install test functions into
+# ModAttrsByRoutineFileBasic class
+for vals in ModAttrsByRoutineFileBasic_test_data:
+    test_method = ModAttrsByRoutineFileBasic_create_test(*vals)
+    test_method.__name__ = 'test_mod_%s' % vals[1]
+    setattr(ModAttrsByRoutineFileBasic, test_method.__name__, test_method)
+
 class ModAttrsByRoutineFile(unittest.TestCase):
     """Change each packet attribute to some value. All tests should
     pass.
@@ -47,109 +98,6 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
     def tearDown(self):
         self.tmpfile.close()    # tempfile deletes on close
-
-
-    def test_mod_urb(self):
-        self.tmpfile.write('urb = 12345')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.urb, 12345)
-
-    def test_mod_event_type(self):
-        self.tmpfile.write('event_type = "E"')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.event_type, 'E')
-
-
-    def test_mod_xfer_type(self):
-        self.tmpfile.write('xfer_type = 3')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.xfer_type, 3)
-
-
-    def test_mod_epnum(self):
-        self.tmpfile.write('epnum = 55')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.epnum, 55)
-
-
-    def test_mod_devnum(self):
-        self.tmpfile.write('devnum = 12')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.devnum, 12)
-
-
-    def test_mod_busnum(self):
-        self.tmpfile.write('busnum = 32')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.busnum, 32)
-
-
-    def test_mod_flag_setup(self):
-        self.tmpfile.write('flag_setup = "1"')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.flag_setup, '1')
-
-
-    def test_mod_flag_data(self):
-        self.tmpfile.write('flag_data = "!"')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.flag_data, '!')
-
-
-    def test_mod_ts_sec(self):
-        self.tmpfile.write('ts_sec = 9876543210')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.ts_sec, 9876543210)
-
-
-    def test_mod_ts_usec(self):
-        self.tmpfile.write('ts_usec = 1234567890')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.ts_usec, 1234567890)
-
-
-    def test_mod_status(self):
-        self.tmpfile.write('status = 42')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.status, 42)
-
-
-    def test_mod_length(self):
-        self.tmpfile.write('length = 16')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.length, 16)
-
-
-    def test_mod_len_cap(self):
-        self.tmpfile.write('len_cap = 1')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.len_cap, 1)
 
 
     def test_mod_setup(self):
@@ -195,23 +143,6 @@ class ModAttrsByRoutineFile(unittest.TestCase):
             if packet.xfer_type == 0:
                 self.modifier.apply_routine_file(packet)
                 self.assertEqual(packet.start_frame, 4)
-
-
-    def test_mod_xfer_flags(self):
-        self.tmpfile.write('xfer_flags = 49294')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.xfer_flags, 49294)
-
-
-    def test_mod_ndesc(self):
-        self.tmpfile.write('ndesc = 847934')
-
-        for packet in packet_generator():
-            self.modifier.apply_routine_file(packet)
-            self.assertEqual(packet.ndesc, 847934)
-
 
 
 class ModByModule(unittest.TestCase):
