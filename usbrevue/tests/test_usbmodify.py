@@ -9,6 +9,7 @@ import usbmodify
 from usbrevue import Packet
 import unittest
 import struct
+import os
 
 from tutil import *
 
@@ -18,7 +19,12 @@ class ModAttrsByRoutineFile(unittest.TestCase):
 
     """
 
-    modifier = usbmodify.Modifier('', 'test_routine_file', '')
+    def setUp(self):
+        self.modifier = usbmodify.Modifier('', 'test_routine_file', '')
+
+    def tearDown(self):
+        os.remove('test_routine_file')
+
 
     def test_mod_urb(self):
         f = open('test_routine_file', 'w')
