@@ -579,6 +579,10 @@ class SetupField(PackedFields):
                                         self.bmRequestType,
                                         REQUEST_TYPE_RECIPIENT[val])
 
+    @property
+    def bRequest_str(self):
+        return SETUP_REQUEST_TYPES[self.bRequest]
+
     def data_to_str(self):
         """Compact hex representation of setup data. Note that due to
         endianness, byte orders may appear to differ from the bytes as

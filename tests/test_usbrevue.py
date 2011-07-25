@@ -396,6 +396,10 @@ class TestSetupField(unittest.TestCase,TestUtil):
         self.assertEqual(self.setup.bRequest,
                             SETUP_REQUEST_TYPES['SYNCH_FRAME'])
 
+    def test_brequest_unknown(self):
+        self.setup.bRequest = 254   # Reported in the wild
+        self.assertEqual(self.setup.bRequest_str, 'unknown')
+
     def test_wValue(self):
         self.assertEqual(self.setup.wValue, 0b100000000)
 
