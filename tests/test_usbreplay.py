@@ -1,4 +1,25 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 import logging
 import os
@@ -17,29 +38,32 @@ from usbrevue import *
 import usb.core
 import usb.util
 
+DEBUG=False
+
 
 class TestDevice(unittest.TestCase, TestUtil):
 
-    #def __init__(self, rep):
-    #    global replayer
-    #    replayer = rep
-    #    #replayer.reset_device()
-
     def setup(self):
+        global replayer
+        print 'In setup for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+
+
+    def teardown(self):
         global replayer
         print 'Resetting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         replayer.reset_device()
 
 
     def print_device(self):
+        """ Print the vendor and product id's for this device """
         print '\nTesting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
 
 
     def test_device(self):
+        """ Test that this usb device really exists """
         global replayer
-        #if replayer.debug:
         if replayer.debug:
-            print 'In TestDevice.test_device'
+            print '\nIn TestDevice.test_device'
         # find our device
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         # Was device found?
@@ -47,10 +71,10 @@ class TestDevice(unittest.TestCase, TestUtil):
 
 
     def test_kernel_driver(self):
+        """ Test the kernel driver for this usb device """
         global replayer
-        #if replayer.debug:
         if replayer.debug:
-            print 'In TestDevice.test_kernel_driver'
+            print '\nIn TestDevice.test_kernel_driver'
         res = replayer.device.is_kernel_driver_active(replayer.logical_iface)
         if res == False:
             res = replayer.device.attach_kernel_driver(replayer.logical_iface)
@@ -63,11 +87,13 @@ class TestDevice(unittest.TestCase, TestUtil):
         res = replayer.device.detach_kernel_driver(replayer.logical_iface)
         if replayer.debug:
             print 'Result of detach is', res
+
    
     def test_eps(self):
+        """ Test all used endpoints for this usb device """
         global replayer
         if replayer.debug:
-            print 'In TestDevice.test_eps'
+            print '\nIn TestDevice.test_eps'
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         for cfg in dev:
             self.assertEqual(cfg.bConfigurationValue, replayer.cfg.bConfigurationValue)
@@ -104,6 +130,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
 
     def test_replayer(self):
+        """ Test for a valid replayer instance """
         global replayer
         if replayer.debug:
             print '\nIn TestDevice.test_replayer'
@@ -111,11 +138,15 @@ class TestDevice(unittest.TestCase, TestUtil):
           
 
     def test_print_descriptors(self):
+        """ Print all usb descriptors """
         global replayer
         replayer.print_all()
 
 
     def test_device_descriptor(self):
+        """
+        Print out some device descriptor fields.
+        """
         global replayer
         if replayer.debug:
             print '\nIn TestDevice.test_device_descriptor'
@@ -147,7 +178,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
     def test_cfg_descriptor(self):
         """
-        Utility function to print out all configuration descriptor fields.
+        Print out some configuration descriptor fields.
         """
         global replayer
         self.print_device()
@@ -179,7 +210,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
     def test_iface_descriptor(self):
         """
-        Utility function to print out all interface descriptor fields.
+        Print out some interface descriptor fields.
         """
         global replayer
         if replayer.debug:
@@ -223,17 +254,28 @@ class TestDevice(unittest.TestCase, TestUtil):
 
     def test_ep_descriptor(self):
         """
-        Utility function to print out all endpoint descriptor fields.
+        Print out selected poll endpoint descriptor fields.
         """
         global replayer
-        ep = replayer.poll_eps[0]
+        for i in range(len(replayer.poll_eps)):
+            poll_ep = replayer.poll_eps[i]
+            self.print_ep_info(poll_ep)
+
+
+    def print_ep_info(self, ep):
+        """ Print out some poll endpoint information """
+        if not ep.bEndpointAddress:
+            print 'This endpoint does not have a valid address'
+            return
+
         if replayer.debug:
             print '\nPoll endpoints are: ', ep.bEndpointAddress
             print 'Actual poll endpoint descriptor fields are ...'
             replayer.print_ep_descriptor_fields(ep)
 
         # bLength = Size of endpoint descriptor in bytes (number).
-        self.assertEqual(ep.bLength, 7, 'Incorrect endpoint descriptor bLength')
+        if ep.bLength:
+            self.assertEqual(ep.bLength, 7, 'Incorrect endpoint descriptor bLength')
 
         # bDescriptorType = Endpoint descriptor (0x05) in bytes (constant).
         self.assertEqual(ep.bDescriptorType, 0x5, 'Incorrect endpoint descriptor bDescriptorType')
@@ -241,7 +283,6 @@ class TestDevice(unittest.TestCase, TestUtil):
         # bEndpointAddress = Endpoint descriptor (0x05) in bytes (constant).
         # Bits 0-3=endpoint number, Bits 4-6=0, Bit 7=0(out) or 1(in).
         #print 'bEndpointAddress = 0x%x' % ep.bEndpointAddress
-
         # bmAttributes = Bits 0-1=Transfer type, other bits refer to
         # synchronization type, usage type (iso mode) (bitmap).
         # Transfer types: 00=Control, 01=Isochronous, 10=Bulk, 11=Interrupt.
@@ -264,6 +305,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
         
 def get_usb_devices():
+    """ Get all non-hub usb devices on this computer """
     devices = []
     devices = usb.core.find(find_all=True)
     # Remove all hub devices from the list
@@ -280,6 +322,9 @@ def get_usb_devices():
 
                                                                             
 def print_devices(devices):
+    """ 
+    Print the vendor and product ids of this usb device.
+    """
     print 'Devices being tested are ...'
     for dev in devices:
        print 'vid = 0x%x,  pid = 0x%x' % (dev.idVendor, dev.idProduct)  
@@ -293,10 +338,14 @@ if __name__ == '__main__':
     devices = []
     devices = get_usb_devices()
     print_devices(devices)
-    for dev in devices:
-        replayer = usbreplay.Replayer(vid=dev.idVendor, pid=dev.idProduct, debug=False)
-        suite.addTest(loader.loadTestsFromTestCase(TestDevice))
-        unittest.TextTestRunner(verbosity=2).run(suite)
-        suite = unittest.TestSuite()
-
+    try:
+        for dev in devices:
+            replayer = usbreplay.Replayer(vid=dev.idVendor, pid=dev.idProduct, debug=DEBUG)
+            suite.addTest(loader.loadTestsFromTestCase(TestDevice))
+            unittest.TextTestRunner(verbosity=2).run(suite)
+            suite = unittest.TestSuite()
+    except usb.core.USBError as e:
+        if str(e) == "Unknown Error":
+            pass
+        print e
 
