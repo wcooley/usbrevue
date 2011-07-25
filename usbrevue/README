@@ -16,7 +16,8 @@ YMMV, depending on whether the minimum requirements are met.
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:
-/usr/lib/python2.7.  pyusb allows imports of usb.core and usb.util. 
+/usr/lib/python2.7.  pyusb, for example, allows imports of usb.core and 
+usb.util. 
 
 
 

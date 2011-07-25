@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/ain/env python
 
 import sys
 import usb.core
@@ -18,7 +18,7 @@ from threading import Thread
 #EP_ADDRESS = 0x83
 #CFG_NUM = 0
 #IFACE_NUM = 3
-#ALT_SETTING_NUM = 0
+#LT_SETTING_NUM = 0
 
 #For my mouse on Ubuntu linux Virtual Box for ep 1
 #VENDOR_ID = 0x80ee
@@ -38,8 +38,8 @@ LOGICAL_ALT_SETTING = 0
 LOGICAL_EP = 0    # EP 1 IN
 EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3 
                         # (Transfer Type, Synch Type, Usage Type)
-BUS = 0x6
-DEVICE = 0x3
+#BUS = 0x6
+#DEVICE = 0x3
 DEBUG = False
 
 
@@ -101,42 +101,41 @@ class Replayer(object):
     to a USB device.
     """
 
-    #def __init__(self, infile='-', vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=LOGICAL_CFG, logical_iface=LOGICAL_IFACE, logical_alt_setting=LOGICAL_ALT_SETTING, ep_address=EP_ADDRESS, debug=True):
-    def __init__(self, vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=LOGICAL_CFG, logical_iface=LOGICAL_IFACE, logical_alt_setting=LOGICAL_ALT_SETTING, ep_address=EP_ADDRESS, infile='-', debug=DEBUG):
+    #def __init__(self, vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=LOGICAL_CFG, logical_iface=LOGICAL_IFACE, logical_alt_setting=LOGICAL_ALT_SETTING, infile='-', debug=DEBUG):
+    def __init__(self, vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=0, logical_iface=0, logical_alt_setting=0, infile='-', debug=DEBUG):
         """
         Constructor to initialize to the various usb fields, such as vendor
         id, product id, configuration, interface, alternate setting and 
         endpoint address.  Based on vendor and product id, it will get
-        the USB device and set the appropriate parameters.  The options
-        argument contains either defaults values for these fields or 
-        user designated values.
+        the USB device and set the appropriate parameters.
         """
         self.debug = debug
-        if self.debug:
-            print '\nIn Replayer.__init__'
+        if self.debug: print '\nIn Replayer.__init__'
         self.init_handlers()
         self.urbs = []
         self.vid = vid
         self.pid = pid
-        self.logical_cfg = logical_cfg
-        self.logical_iface = logical_iface
-        self.logical_alt_setting = logical_alt_setting
 
         self.device = self.get_usb_device(self.vid, self.pid)
         if self.device is None:
             raise ValueError('The device with vid=0x%x, pid=0x%x is not connected') % (self.vid, self.pid)
 
+        self.logical_cfg = logical_cfg
+        self.set_configuration(self.logical_cfg)
+
+        self.logical_alt_setting = logical_alt_setting
+        self.logical_iface = logical_iface
+        self.set_interface(self.logical_iface, self.logical_alt_setting)
+
         if self.device.is_kernel_driver_active(self.logical_iface):
             if self.debug: print 'Detaching kernal driver'
             self.device.detach_kernel_driver(self.logical_iface)
 
-        self.set_configuration(self.logical_cfg)
-        self.set_interface(self.logical_iface, self.logical_alt_setting)
         if self.debug:
             self.print_descriptor_info()
 
-        # sort all endpoints on our interface: incoming interrupts go into poll_eps, and
-        # all others go into eps, indexed by epnum
+        # sort all endpoints on our interface: incoming interrupts go into 
+        # poll_eps, and all others go into eps, indexed by epnum
         self.poll_eps = []
         self.eps = {0x00: None, 0x80: None}
         for ep in self.iface:
@@ -148,6 +147,9 @@ class Replayer(object):
 
         self.timer = Timing(debug=self.debug)
 
+
+    def get_logical_cfg(self):
+        self.logical_cfg = self.get_logical_cfg()
 
     def reset_device(self):
         """ 
@@ -235,8 +237,9 @@ class Replayer(object):
     # without affecting the endpoint settings of interface 1, altsetting 0.
     def set_interface(self, logical_iface=0, logical_alt_setting=0):
         """ 
-        Set interface descriptor based on interface and alternate setting numbers
-        Example to access the first interface and first alternate setting:  
+        Set interface descriptor based on interface and alternate setting 
+        numbers.  Example to access the first interface and first alternate 
+        setting:  
           iface = cfg[(0,0)]
         """
         if self.debug:
@@ -257,11 +260,7 @@ class Replayer(object):
         """
         MAX_LOOPS = 10
         loops = 0
-        if self.debug:
-            self.print_device_enumeration_tree()
-            self.print_device_descriptor_fields()
-            self.print_cfg_descriptor_fields()
-            self.print_iface_descriptor_fields()
+        if self.debug: self.print_all()
 
         for ep in self.poll_eps:
             if self.debug: print 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress
@@ -284,16 +283,16 @@ class Replayer(object):
                 if self.debug:
                     #print '\nIn run: Dumping pcap packet data ...'
                     #out.dump(hdr, packet.repack())
-                    print '\nIn Replayer.run: Printing pcap field information ...'
+                    print '\nIn Replayer.run: Printing pcap field info...'
                     packet.print_pcap_fields()
-                    print '\nIn Replayer.run: Printing pcap summary information ...'
+                    print '\nIn Replayer.run: Printing pcap summary info...'
                     packet.print_pcap_summary()
 
                 # Wait for awhile before sending next usb packet
                 self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
                 self.send_usb_packet(packet)
             except Exception:
-                sys.stderr.write("An error occured in replayer run loop. Here's the traceback")
+                sys.stderr.write("Error occured in replayer run loop. Here's the traceback")
                 traceback.print_exc()
                 break
         #wait for keyboard interrupt, let poll threads continue
@@ -409,13 +408,11 @@ class Replayer(object):
         if self.debug:
             print 'Attempting to read %d bytes from device to host' % packet.length
         if packet.length:
-#            ret_array = self.device.read(self.ep_address, len(packet.data), self.logical_iface, 1000)
             try:
                 ret_array = ep.read(packet.length, TIMEOUT)
             except usb.core.USBError as e:
                 print '\nIn Replayer.read_from_device ', e
 
-            #ret_array = self.device.read(ep, packet.length,  self.logical_iface, TIMEOUT)
             if self.debug:
                 print 'Finished attempting to read %d callback bytes from device to host' % packet.length
                 print 'Actually read %d callback bytes from device to host' % len(ret_array)
@@ -523,7 +520,7 @@ class Replayer(object):
         print 'wTotalLength = ', cfg.wTotalLength
         # bNumInterfaces = Total length in bytes of data returned (number). 
         print 'bNumInterfaces = ', cfg.bNumInterfaces
-        # bConfigurationValue = Value to use as an arg to select this cfg (number).
+        # bConfigurationValue = Value to use as arg to select this cfg (number).
         print 'bConfigurationValue = ', cfg.bConfigurationValue
         # iConfiguration = Index of string descriptor describing this cfg (index).
         # This string is in human readable form.
@@ -669,11 +666,11 @@ def get_arguments(argv):
                      )
 
     # Set the debug mode to quiet or verbose
-    parser.add_option("-q", "--quiet", 
+    parser.add_option("-d", "--debug", 
                       dest="debug", 
-                      default=False,
-                      action="store_false", 
-                      help="Don't print debug messages to stdout"
+                      default=True,
+                      action="store_true", 
+                      help="Print debug messages to stdout"
                      )
     
     options, remaining_args = parser.parse_args()
@@ -713,7 +710,7 @@ if __name__ == '__main__':
     if not sys.stdout.isatty():
     	out = pcap.dump_open('-')
      #print '5'
-    replayer = Replayer(options.vid, options.pid, options.logical_cfg, options.logical_iface, options.logical_alt_setting, options.ep_address, options.infile, options.debug)
+    replayer = Replayer(options.vid, options.pid, options.logical_cfg, options.logical_iface, options.logical_alt_setting, options.infile, options.debug)
     #print '6'
     replayer.run(pcap, out)
     #print '7'
