@@ -581,7 +581,10 @@ class SetupField(PackedFields):
 
     @property
     def bRequest_str(self):
-        return SETUP_REQUEST_TYPES[self.bRequest]
+        if self.bRequest in SETUP_REQUEST_TYPES:
+            return SETUP_REQUEST_TYPES[self.bRequest]
+        else:
+            return 'unknown'
 
     def data_to_str(self):
         """Compact hex representation of setup data. Note that due to
@@ -598,8 +601,7 @@ class SetupField(PackedFields):
                                             self.bmRequestTypeDirection,
                                             self.bmRequestTypeRecipient,
                                             bin(self.bmRequestType))
-        s += '; bRequest: %s (0x%X)' % (SETUP_REQUEST_TYPES[self.bRequest],
-                                        self.bRequest)
+        s += '; bRequest: %s (0x%X)' % (self.bRequest_str, self.bRequest)
         s += '; wValue: (0x%X)' % self.wValue
         s += '; wIndex: (0x%X)' % self.wIndex
         s += '; wLength: (0x%X)' % self.wLength
