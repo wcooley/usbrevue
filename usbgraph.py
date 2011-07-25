@@ -65,16 +65,17 @@ class ByteModel(QAbstractTableModel):
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
+        # 0 is the row with checkboxes, so no value there
         if row != 0:
             val = single_bytes[col][row-1]
 
         if role == Qt.Qt.DisplayRole:
-            if row == 0:
+            if row == 0: # again, 0 has checkboxes
                 return QVariant()
             elif isinstance(val, str):
                 return val
             else:
-                if val == -1:
+                if val == -1: # -1 => no value for that byte
                     return '-'
                 else:
                     return "%02X" % val
@@ -86,7 +87,7 @@ class ByteModel(QAbstractTableModel):
         if role == Qt.Qt.CheckStateRole:
             row = index.row()
             col = index.column()
-            if row == 0:
+            if row == 0: # swap the state of the checkbox
                 if self.cb_states[col] == 0:
                     self.cb_states[col] = 2
                     self.cb_checked.emit(col)
@@ -111,12 +112,15 @@ class ByteModel(QAbstractTableModel):
     def new_packet(self, packet):
         if len(packet.data) > 0:
             if len(single_bytes) > 0:
-                l = len(single_bytes[0])
+                l = len(single_bytes[0]) # number of packets so far
             else:
                 l = 0
-            w = len(single_bytes)
+            w = len(single_bytes) # (max) number of bytes so far
 
             first_row = True if len(single_bytes) == 0 else False
+            # if the incoming packet has more bytes than we've seen
+            # before, add the appropriate number of empty lists to the
+            # single_bytes list, along with columns for each new byte
             if len(packet.data) > len(single_bytes):
                 self.beginInsertColumns(QModelIndex(),
                                         w,
@@ -135,28 +139,34 @@ class ByteModel(QAbstractTableModel):
 
             self.beginInsertRows(QModelIndex(), l, l)
             offset = 0
-            for b in packet.data:
+            for b in packet.data: # add the new packet data
                 single_bytes[offset].append(b)
                 offset += 1
+            # fill remaining bytes with -1
             while offset < len(single_bytes):
                 single_bytes[offset].append(-1)
                 offset += 1
             self.endInsertRows()
             self.row_added.emit()
 
+            # update the custom byte values for the new packet
             for cb in custom_bytes:
-                if cb in custom_bytes:
-                    cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
-                    
-                    composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
+                # swap [\d+] for single_bytes[\d+][-1] so that we can
+                # evaluate the string
+                cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
+                
+                # figure out which bytes make up this custom byte
+                composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
 
-                    if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
-                        try:
-                            custom_bytes[cb].append(eval(cb_run))
-                        except Exception:
-                            pass
-                    else:
-                        custom_bytes[cb].append(-1)
+                # if all bytes that make up this composite byte are
+                # defined for this new packet, append the appropriate value
+                if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
+                    try:
+                        custom_bytes[cb].append(eval(cb_run))
+                    except Exception:
+                        pass
+                else: # otherwise append -1
+                    custom_bytes[cb].append(-1)
                     
 
 
@@ -229,16 +239,17 @@ class BytePlot(Qwt.QwtPlot):
         self.setCanvasBackground(Qt.Qt.white)
         self.alignScales()
 
-        self.x_range = 200
+        self.x_range = 200 # the "width" of the graph in packets
 
         random.seed()
 
-        self.curves = {}
-        self.custom_curves = {}
+        self.curves = {} # curves for single bytes
+        self.custom_curves = {} # curves for custom bytes
 
         self.insertLegend(Qwt.QwtLegend(), Qwt.QwtPlot.BottomLegend)
 
     def alignScales(self):
+        """get the x and y axes set up"""
         self.canvas().setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Plain)
         self.canvas().setLineWidth(1)
         self.setAxisScaleDraw(0, ByteScale())
@@ -253,7 +264,9 @@ class BytePlot(Qwt.QwtPlot):
         self.setAxisTitle(2, "Packet sequence number")
 
     def row_added(self):
-        l = len(single_bytes[0])
+        l = len(single_bytes[0]) # number of packets so far
+        # mask matches each valid byte (e.g. value > -1) to True, and
+        # the invalid (missing) bytes to False
         for c in self.curves:
             mask = [j >= 0 for j in single_bytes[c]]
             self.set_curve_data(l, self.curves[c], range(l), single_bytes[c], mask)
@@ -264,12 +277,14 @@ class BytePlot(Qwt.QwtPlot):
         self.replot()
 
     def cb_checked(self, column):
+        # set up the curve if this is the first time that checkbox was ticked
         if column not in self.curves:
             l = len(single_bytes[0])
             mask = [j >= 0 for j in single_bytes[column]]
             self.curves[column]= ByteCurve("Byte " + str(column))
             self.set_curve_data(l, self.curves[column], range(l), single_bytes[column], mask)
 
+        # grab a random color and assign it to the curve
         r, g, b = colors.pop(random.randint(0, len(colors)-1))
         color = QColor(r, g, b)
         self.curves[column].setPen(QPen(QBrush(color), 2))
@@ -280,7 +295,9 @@ class BytePlot(Qwt.QwtPlot):
         self.replot()
 
     def cb_unchecked(self, column):
+        # remove the curve from the plot
         self.curves[column].detach()
+        # add the curve's colors back to the pool of available colors
         colors.append(self.curves[column].pen().brush().color().getRgb()[:-1])
 
         self.replot()
@@ -288,27 +305,41 @@ class BytePlot(Qwt.QwtPlot):
     def new_custom_bytes(self, string):
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
         to_remove = list()
+        # for each active custom byte defintion...
         for cc in self.custom_curves:
+            # if that definition is not the current list of custom
+            # byte strings...
             if cc not in byte_def_strings:
+                # mark it for removal
                 to_remove.append(cc)
+                # remove it from the graph
                 self.custom_curves[cc].detach()
+                # add its color back to the pool
                 colors.append(self.custom_curves[cc].pen().brush().color().getRgb()[:-1])
+                # stop keeping track of its value
                 del custom_bytes[cc]
 
+        # remove the unnecessary custom bytes
         for cc in to_remove:
             del self.custom_curves[cc]
 
+        # take care of the active custom byte definitions
         for d in byte_def_strings:
             if not len(d) == 0:
+                # swap [\d+] for single_bytes[\d+][pos] so we can
+                # evalute within the for loop below
                 d_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][pos]', d)
                     
                 # find out what byte values are being used
                 composite_bytes = re.findall(r'single_bytes\[(\d+)\]', d_run)
 
+                # if this is a new definition
                 if d not in self.custom_curves:
+                    # set up the curve
                     self.custom_curves[d] = ByteCurve(d)
                     custom_bytes[d] = list()
                     self.custom_curves[d].attach(self)
+                    # back-fill the list of values
                     for pos in range(len(single_bytes[0])):
                         if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             try:
@@ -320,7 +351,7 @@ class BytePlot(Qwt.QwtPlot):
                                 break
                         else:
                             custom_bytes[d].append(-1)
-                else:
+                else: # otherwise just append the latest value
                     for pos in range(len(custom_bytes[d]), len(single_bytes[0])):
                         if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             custom_bytes[d].append(eval(d_run))
@@ -338,9 +369,12 @@ class BytePlot(Qwt.QwtPlot):
         self.replot()
 
     def set_curve_data(self, length, curve, x, y, mask):
+        # if there are more packets to plot than the current width of
+        # the graph, just plot the latest packets
         if length > self.x_range:
             curve.setData(ByteData(x[length-self.x_range:length], y[length-self.x_range:length], mask[length-self.x_range:length]))
             self.setAxisScale(2, length-self.x_range, length)
+        # otherwise plot them all
         else:
             curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
                         
@@ -390,6 +424,7 @@ class ByteCurve(Qwt.QwtPlotCurve):
     def __init__(self, title=None):
         Qwt.QwtPlotCurve.__init__(self, title)
 
+    # only draw the bytes whose mask value is True
     def draw(self, painter, xMap, yMap, rect):
         try:
             indices = np.arange(self.data().size())[self.data().mask()]
