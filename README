@@ -13,6 +13,7 @@ YMMV, depending on whether the minimum requirements are met.
           a complete capture.
     * python-pcapy
     * python-qt4
+    * python-gflags
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:
@@ -209,6 +210,18 @@ accessed by referencing setup.[name]:
 		    wIndex
 		    wLength
 
+Alternatively, you can access the transfer direction, type, and
+recipient subfields of the bmRequestType bitmap with the following:
+
+	  	    bmRequestTypeDirection
+		        (possible values: 'host_to_device', 'device_to_host')
+		    bmRequestTypeType
+			(possible values: 'standard', 'class_',
+		        'vendor', 'reserved')
+		    bmRequestTypeRecipient
+			(possible values: 'device', 'interface',
+		        'endpoint', 'other')
+
 The data array may be of variable size, depending on the specific
 packet. For more information about these attributes, see the usbmon
 documentation (probably supplied with your Linux kernel documentation,
@@ -265,7 +278,7 @@ example, the following routine is saved as "mod_routine":
 
 	 if len(data) >= 8:
 	     data[7] = data[0] or data[1]
-	 elif epnum == 0 && !status:
+	 elif epnum == 0 and not status:
 	     status = 1
 
 The routine can be applied to all incoming packets by doing:

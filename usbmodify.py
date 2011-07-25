@@ -42,6 +42,7 @@ gflags.DEFINE_list('exp', None, 'A comma-separated list of expressions to be app
 gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified.')
 
 
+
 class Modifier(object):
     """This class implements all modifier functionality. Does not
     interface with pcapy; instead, it expects to receive pcapy Reader
