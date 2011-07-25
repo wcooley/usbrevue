@@ -23,7 +23,7 @@
 import sys
 from optparse import OptionParser
 import pcapy
-from usbrevue import Packet, USBMON_TRANSFER_TYPE
+from usbrevue import Packet, USBMON_TRANSFER_TYPE, SETUP_REQUEST_TYPES
 import codegen
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
@@ -106,6 +106,8 @@ class PacketModel(QAbstractTableModel):
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
             elif col == SETUP_COL and pack.is_setup_packet:
+                if pack.setup.bmRequestTypeType == 'standard':
+                    return SETUP_REQUEST_TYPES[pack.setup.bRequest]
                 return pack.setup.data_to_str()
         elif role == Qt.FontRole:
             if col in [SETUP_COL, ADDRESS_COL, DATA_COL]:
@@ -123,10 +125,35 @@ class PacketModel(QAbstractTableModel):
                         pack.busnum, pack.devnum, pack.epnum,
                         ['Isochronous', 'Interrupt', 'Control', 'Bulk'][pack.xfer_type],
                         ['outgoing', 'incoming'][pack.epnum >> 7])
+            if col == SETUP_COL and pack.is_setup_packet:
+                return pack.setup.fields_to_str()
+        elif role == Qt.BackgroundColorRole:
+            if isinstance(pack, Packet):
+                if pack.is_setup_packet:
+                    return self.packet_color(pack)
+                elif pack.event_type == 'C' and pack.is_control_xfer:
+                    # find the corresponding submission, color accordingly
+                    for i in xrange(row, -1, -1):
+                        if isinstance(self.packets[i], Packet) and \
+                                self.packets[i].event_type == 'S' and \
+                                self.packets[i].busnum == pack.busnum and \
+                                self.packets[i].devnum == pack.devnum and \
+                                self.packets[i].epnum == pack.epnum:
+                            return self.packet_color(self.packets[i])
         elif role == Qt.UserRole: # packet object
             return QVariant(pack)
  
         return QVariant()
+
+    def packet_color(self, pack):
+        if not pack.is_setup_packet:
+            return QVariant()
+        if pack.setup.bmRequestTypeType == 'standard':
+            return QColor('lightgray')
+        elif pack.setup.bmRequestTypeType == 'class_':
+            return QColor(250, 230, 190)
+        elif pack.setup.bmRequestTypeType == 'vendor':
+            return QColor(190, 250, 190)
 
     def setData(self, index, value, role = Qt.EditRole):
         if role != Qt.EditRole or index.column() != DATA_COL:
