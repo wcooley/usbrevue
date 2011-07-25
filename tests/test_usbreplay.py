@@ -38,20 +38,32 @@ from usbrevue import *
 import usb.core
 import usb.util
 
-DEBUG=False
+DEBUG=True
 
 
 class TestDevice(unittest.TestCase, TestUtil):
 
     def setup(self):
         global replayer
-        print 'In setup for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+        if replayer.debug:
+            print '\nIn TestDevice.setup for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+        try:
+            replayer.reset_device()
+        except usb.core.USBError as e:
+            print 'Exception in setup: ', e
+            pass
 
 
     def teardown(self):
         global replayer
+        if replayer.debug:
+            print '\nIn TestDevice.teardown for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         print 'Resetting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
-        replayer.reset_device()
+        try:
+            replayer.reset_device()
+        except usb.core.USBError as e:
+            print 'Exception in teardown: ', e
+            pass
 
 
     def print_device(self):
@@ -63,7 +75,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """ Test that this usb device really exists """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_device'
+            print '\nIn TestDevice.test_device for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         # find our device
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         # Was device found?
@@ -74,7 +86,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """ Test the kernel driver for this usb device """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_kernel_driver'
+            print '\nIn TestDevice.test_kernel_driver for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         res = replayer.device.is_kernel_driver_active(replayer.logical_iface)
         if res == False:
             res = replayer.device.attach_kernel_driver(replayer.logical_iface)
@@ -93,7 +105,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """ Test all used endpoints for this usb device """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_eps'
+            print '\nIn TestDevice.test_eps for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         for cfg in dev:
             self.assertEqual(cfg.bConfigurationValue, replayer.cfg.bConfigurationValue)
@@ -133,7 +145,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """ Test for a valid replayer instance """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_replayer'
+            print '\nIn TestDevice.test_replayer for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         self.assertNotEqual(replayer, None, 'Replayer not instantiated')
           
 
@@ -149,7 +161,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_device_descriptor'
+            print '\nIn TestDevice.test_device_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         devdesc = replayer.device
         #dsc = self.backend.get_device_descriptor(self.device)
         self.assertEqual(devdesc.bLength, 18, 'Incorrect device descriptor length')
@@ -183,7 +195,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         global replayer
         self.print_device()
         if replayer.debug:
-            print '\nIn TestDevice.print_cfg_descriptor_fields'
+            print '\nIn TestDevice.print_cfg_descriptor_fields for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         cfgdesc = replayer.cfg
         # bLength = Size of configuration descriptor in bytes (number).
         self.assertEqual(cfgdesc.bLength, 9, 'Incorrect configuration descriptor bLength')
@@ -214,7 +226,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.print_iface_descriptor_fields'
+            print '\nIn TestDevice.test_iface_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         ifacedesc = replayer.iface
 
         # bLength = Size of interface descriptor in bytes (number).
@@ -257,6 +269,8 @@ class TestDevice(unittest.TestCase, TestUtil):
         Print out selected poll endpoint descriptor fields.
         """
         global replayer
+        if replayer.debug:
+            print '\nIn TestDevice.test_ep_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         for i in range(len(replayer.poll_eps)):
             poll_ep = replayer.poll_eps[i]
             self.print_ep_info(poll_ep)
@@ -264,6 +278,8 @@ class TestDevice(unittest.TestCase, TestUtil):
 
     def print_ep_info(self, ep):
         """ Print out some poll endpoint information """
+        if replayer.debug:
+            print '\nIn TestDevice.print_ep_info for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
         if not ep.bEndpointAddress:
             print 'This endpoint does not have a valid address'
             return
@@ -344,6 +360,7 @@ if __name__ == '__main__':
             suite.addTest(loader.loadTestsFromTestCase(TestDevice))
             unittest.TextTestRunner(verbosity=2).run(suite)
             suite = unittest.TestSuite()
+            replayer = None
     except usb.core.USBError as e:
         if str(e) == "Unknown Error":
             pass
