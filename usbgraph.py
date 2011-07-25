@@ -242,6 +242,8 @@ class BytePlot(Qwt.QwtPlot):
         self.setCanvasBackground(Qt.Qt.white)
         self.alignScales()
 
+        self.setTitle('Byte Values')
+
         self.x_range = 200 # the "width" of the graph in packets
 
         random.seed()
@@ -461,6 +463,15 @@ class ByteValWidget(QWidget):
         self.hb.addWidget(self.y_axis_edit)
         self.setLayout(self.hb)
 
+        self.setToolTip("""Specify one or more custom byte values to plot.
+                           
+Use the following notation to refer to existing byte offsets:
+    * offset 0: [0]
+    * offset 1: [1]
+    ...
+
+Any valid Python expression can be used to modify byte offset values.""")
+
         self.y_axis_edit.returnPressed.connect(self.update_byte_vals)
 
     def update_byte_vals(self):
@@ -544,7 +555,7 @@ class USBGraph(QApplication):
         self.bytevalgroup.setMaximumHeight(100)
         self.bytevalgroup.setMinimumWidth(400)
 
-        self.x_range = PlotWindowSliderWidget('Plot Window')
+        self.x_range = PlotWindowSliderWidget('Plot Width (# of packets)')
         self.x_range.value_changed.connect(self.byteplot.change_x_range)
 
         self.y_clamp = ClampYAxisWidget('Clamp Y Axis')
