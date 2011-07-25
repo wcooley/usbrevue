@@ -16,7 +16,7 @@ YMMV, depending on whether the minimum requirements are met.
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:
-/usr/lib/python2.7.  pyusb, for example, allows imports of usb.core and 
+/usr/lib/python2.7.  Pyusb, for example, allows imports of usb.core and 
 usb.util. 
 
 
@@ -336,3 +336,141 @@ As a simple example, the following module output all packets with epnum 1 or
 To run this module, do:
 
         $ ./usbmodify.py --mod mymod
+
+
+
+========
+Replayer
+========
+
+The purpose of the Replayer is to replay a packet stream to a usb device.
+The packet stream may or may not have been modified by the modifier or
+via other modules as described elsewhere in this document. 
+allows the user to apply a function to every packet in the input
+stream and writes the modifier packets as output.
+
+1. GETTING STARTED
+
+Like other tools in the USB REVue toolkit, the Replayer reads a 
+pcap-formatted stream or file.  Unlike other tools, it does not 
+output a pcap stream.  Instead, the output is usb packets replayed
+to a usb device.  Thus, the Replayer reads from standard input 
+and writes to a usb device. 
+
+Command line help may be found by executing:
+ 
+        $ sudo ./usbreplay.py -h
+                  OR
+        $ sudo ./usbreplay.py --help
+
+To connect an input source and output destination, use a pipeline. 
+For example, to read from a pcap file called "usbmon.pcap" and replay to 
+a usb device you may do the following:
+
+        $ cat usbmon.pcap | sudo usbreplay.py
+
+To read a pcap stream directly from USB bus 7, do the following: 
+
+        $ sudo tcpdump -i usbmon7u -w - -U | ./usbreplay.py
+
+To read a pcap stream directly from USB bus 7, use the modifier to
+modify the stream, and replay the modified packet to the device, do 
+the following: 
+
+        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbreplay.py
+
+To read a pcap stream directly from USB bus 7, use the modifier to
+modify the stream, view the output, and replay the modified packet to the 
+device, do the following: 
+
+        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbview.py | ./usbreplay.py
+
+Another method using command line arguments, to send a dev.pcap file for a keyboard device on interface 3 endpoint 0x83, is as follows:
+
+        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -e 0x83 -f dev.pcap
+
+
+2. THE USB DESCRIPTORS
+
+Note that much of the information below is derived from 'USB in a NutShell'.
+
+The Replayer needs at a minumum a vendor id and product id.  All other 
+arguments may then be derived from the device derived from those ids.
+The vendor and products ids may be given via command line arguments, or
+derived from the pcap input stream.
+
+A basic usb class hierarchy is shown below.  Execute lsusb to see the USB 
+devices on your system. 
+
+2.1 Device descriptor
+
+Note that a device descriptor, as shown below at the top of the 
+hierarchy, includes all sub-descriptors and therefore represents an 
+entire device.
+
+                                      device
+                                   /          \
+                      configuration            configuration
+                     /             \
+          interface                 interface        ...
+         /         \
+  endpoint         endpoint            ...           ...
+
+
+
+
+2.2 Configuration descriptor
+
+The configuration descriptor specifies values such as amount of power
+this particular configuration uses, if device is self or bus 
+powered and number of interfaces it has. Few devices have more
+than 1 configuration, so cfg index will usually be empty and we will
+simply select the only active configuration at index 0. Only 1 
+configuration may be enabled at a time.
+
+
+2.3 Interface descriptor
+
+The interface descriptor resolves into a functional group performing a
+single feature of the device.  For example, you could have an 
+all-in-one printer, where interface 1 describes the endpoints of a
+fax function, interface 2 describes the endpoints of a scanner 
+function, and interface 3 describes the endpoints of a printer 
+function.  More than one interface may be enabled at one time.  The
+altsetting function will allow the interface to change settings on
+the fly.  
+
+For example, interface 0 could have an altsetting of 0, and interface
+1 could have an altsetting of 0 or an altsetting of 1.  A 
+set_interface request can be used to enable one or the other of those
+interface descriptors.  If interface 1, altsetting 1 is set, then
+we can change the endpoint settings of interface 1, altsetting 1 
+without affecting the endpoint settings of interface 1, altsetting 0.
+
+2.3 Endpoint descriptor
+
+Endpoints can be described as sources or sinks of data. As the bus is 
+host centric, endpoints occur at the end of the communications channel 
+at the USB function. At the software layer, your device driver may send 
+a packet to your devices EP1 for example. As the data is flowing out 
+from the host, it will end up in the EP1 OUT buffer. Your firmware will 
+then at its leisure read this data. If it wants to return data, the 
+function cannot simply write to the bus as the bus is controlled by the 
+host. Therefore it writes data to EP1 IN which sits in the buffer until 
+such time when the host sends a IN packet to that endpoint requesting the 
+data. Endpoints can also be seen as the interface between the hardware 
+of the function device and the firmware running on the function device.
+
+All devices must support endpoint zero. This is the endpoint which 
+receives all of the devices control and status requests during 
+enumeration and throughout the duration while the device is 
+operational on the bus. 
+
+
+3.  CAVEATS
+
+It is possible that due to resolution issues, replayer timing will not
+be exact.  This may or may not result in issues. 
+
+Note that to abort the replayer, it is necessary to hit CNTL-C.
+
