@@ -612,7 +612,7 @@ class SetupField(PackedFields):
         s = ''
         s += self.fields_to_str()
         if self.bmRequestTypeType == 'standard':
-            s += ', request: %s' % SETUP_REQUEST_TYPES[self.bRequest]
+            s += ', request: %s' % self.bRequest_str
             s += ', direction: %s' % self.bmRequestTypeDirection
             s += ', recipient: %s' % self.bmRequestTypeRecipient
         #else:
