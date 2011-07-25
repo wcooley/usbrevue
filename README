@@ -36,7 +36,10 @@ To view a pcap file:
 
 To view a live stream, and dump to a file:
 
-        $ sudo tcpdump -i usbmon0u -w - -U | ./usbview.py > outfile.pcap
+        $ sudo tcpdump -i usbmon0u -w - -U | ./usbview.py -p > outfile.pcap
+
+The -p option enables 'passthru' -- all incoming packets will be dumped to 
+output as they arrive.
 
 2. FILTERING
 
@@ -65,6 +68,9 @@ Examples of display filter expressions:
     * Show setup packets
         setup
 
+    * Show setup packets with a bmRequestType type of 'vendor'
+        setup.bmRequestTypeType == 'vendor'
+
     * Show packets with a data payload
         data
 
@@ -73,6 +79,68 @@ Examples of display filter expressions:
 
     * Show callbacks from interrupt endpoints
         event_type == 'C' and xfer_type == interrupt
+
+3. ANNOTATIONS
+
+At the bottom of the window is a text field for inserting annotations into a
+live packet stream. To use this, just type something into it and press enter.
+Note that there is currently no way to preserve annotations across sessions.
+
+4. EDITING
+
+Double-clicking existing packet data allows it to be edited. The editor only
+accepts hexadecimal characters as input, and does not allow the length of the
+data to be changed.
+
+5. DUMPING
+
+Selected packets can be dumped to standard output, either for writing packets
+to a pcap file or for interaction with other tools. To do this, select one or
+more packets in the list, right click, and choose 'Dump selected'.
+
+Note that dumping will do nothing if standard output is not redirected or piped
+on the command line.
+
+6. CODE GENERATION
+
+The viewer supports limited code translation of packets. A selection of
+packets can be translated into the libusb C code that would replicate them by
+choosing 'Copy as libusb code' from the context menu.
+
+An example of generated code for an incoming control transfer:
+
+if ((err = libusb_control_transfer(handle, 0xa1, 0xfe, 0x0, 0x0, data, 1, TIMEOUT)) < 0)
+	handle_error(err);
+
+Note that this assumes the existence of a number of variables and constants:
+ 
+    * 'handle' is an open libusb device handle
+    * 'err' is an integer
+    * 'data' is a character array large enough to contain the data (in this
+      case, it need only be one byte long)
+    * 'TIMEOUT' is an integer
+    * 'handle_error' is a function or macro that deals with an error code
+
+Outgoing packets use string literals for the data, and expect 'n_transferred'
+to be defined as an integer. Code formatting and names are not currently
+configurable.
+
+Note that any reference to device and bus number are lost in the translation.
+If you attempt to generate code for a selection that includes multiple devices,
+you will receive a warning saying so. (The code is still generated, just in
+case you know what you're doing.)
+
+7. OPTIONS
+
+'Passthru' dumps incoming packets as soon as they're received. It is disabled
+by default, but can be enabled using the -p command-line option.
+
+'Autoscroll' ensures that the most recently captured packet is visible in the
+display. It is disabled by default.
+
+Both options can be toggled from the context menu. Note that these are only
+particularly useful for live captures, not for viewing prerecorded dumps.
+
 
 
 
@@ -93,7 +161,7 @@ source and output destination, use a pipeline. For example, to read
 from a pcap file called "foo.pcap" and write to a file called
 "bar.pcap", do:
 
-        $ cat foo.pcap | ./modifier.py | bar.pcap
+        $ cat foo.pcap | ./modifier.py > bar.pcap
 
 To read a pcap stream directly from USB bus 7, do:
    

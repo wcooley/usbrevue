@@ -1,11 +1,32 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import sys
 from usbview import PcapThread
 from usbrevue import Packet
 from PyQt4 import Qt
 from PyQt4.QtGui import *
-from PyQt4.QtCore import QAbstractTableModel, QModelIndex, QVariant, QString, QByteArray, pyqtSignal, QTimer
+from PyQt4.QtCore import (QAbstractTableModel, QModelIndex, QVariant,
+                          QString, QByteArray, pyqtSignal, QTimer)
 import PyQt4.Qwt5 as Qwt
 import numpy as np
 import random
@@ -15,31 +36,37 @@ import re
 class ByteModel(QAbstractTableModel):
     """Qt Model for byte data."""
 
-    row_added = pyqtSignal()
+    row_added = pyqtSignal() # emit when a new usb packet is received
+    # emit when a new usb packet's data payload is larger than any
+    # we've seen before
     col_added = pyqtSignal()
-    cb_checked = pyqtSignal(int)
-    cb_unchecked = pyqtSignal(int)
+    cb_checked = pyqtSignal(int) # emit when a column checkbox is checked
+    cb_unchecked = pyqtSignal(int) # emit when a column checkbox is unchecked
 
     def __init__(self, parent=None):
         QAbstractTableModel.__init__(self, parent)
 
+        # to keep track of which column checkboxes are checked
         self.cb_states = list()
 
 
     def rowCount(self, parent = QModelIndex()):
-        if len(bytes) > 0:
-            return len(bytes[0])+1
+        if len(single_bytes) > 0:
+            # all byte arrays will have the same length, so just get
+            # the lowest one, since if there are any bytes at all,
+            # then we've have that one
+            return len(single_bytes[0])+1
         else:
             return 1
 
     def columnCount(self, parent = QModelIndex()):
-        return len(bytes)
+        return len(single_bytes)
 
     def data(self, index, role = Qt.Qt.DisplayRole):
         row = index.row()
         col = index.column()
         if row != 0:
-            val = bytes[col][row-1]
+            val = single_bytes[col][row-1]
 
         if role == Qt.Qt.DisplayRole:
             if row == 0:
@@ -83,21 +110,25 @@ class ByteModel(QAbstractTableModel):
 
     def new_packet(self, packet):
         if len(packet.data) > 0:
-            if len(bytes) > 0:
-                l = len(bytes[0])
+            if len(single_bytes) > 0:
+                l = len(single_bytes[0])
             else:
                 l = 0
-            w = len(bytes)
+            w = len(single_bytes)
 
-            first_row = True if len(bytes) == 0 else False
-            if len(packet.data) > len(bytes):
-                self.beginInsertColumns(QModelIndex(), w, max(len(bytes), len(packet.data) - 1))
-                for i in range(len(packet.data) - len(bytes)):
+            first_row = True if len(single_bytes) == 0 else False
+            if len(packet.data) > len(single_bytes):
+                self.beginInsertColumns(QModelIndex(),
+                                        w,
+                                        max(len(single_bytes),
+                                            len(packet.data) - 1))
+
+                for i in range(len(packet.data) - len(single_bytes)):
                     if first_row:
-                        bytes.append(list())
+                        single_bytes.append(list())
                         self.cb_states.append(0)
                     else:
-                        bytes.append([-1] * len(bytes[0]))
+                        single_bytes.append([-1] * len(single_bytes[0]))
                         self.cb_states.append(0)
                 self.endInsertColumns()
                 self.col_added.emit()
@@ -105,27 +136,27 @@ class ByteModel(QAbstractTableModel):
             self.beginInsertRows(QModelIndex(), l, l)
             offset = 0
             for b in packet.data:
-                bytes[offset].append(b)
+                single_bytes[offset].append(b)
                 offset += 1
-            while offset < len(bytes):
-                bytes[offset].append(-1)
+            while offset < len(single_bytes):
+                single_bytes[offset].append(-1)
                 offset += 1
             self.endInsertRows()
             self.row_added.emit()
 
             for cb in custom_bytes:
-                cb_run = re.sub(r'\[(\d+)\]', r'bytes[\1][-1]', cb)
+                if cb in custom_bytes:
+                    cb_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][-1]', cb)
+                    
+                    composite_bytes = re.findall(r'single_bytes\[(\d+)\]', cb_run)
 
-                composite_bytes = re.findall(r'bytes\[(\d+)\]', cb_run)
-
-                if not -1 in [bytes[int(c)][-1] for c in composite_bytes]:
-                    try:
-                        custom_bytes[cb].append(eval(cb_run))
-                    except SyntaxError:
-                        #TODO: handle
-                        pass
-                else:
-                    custom_bytes[cb].append(-1)
+                    if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
+                        try:
+                            custom_bytes[cb].append(eval(cb_run))
+                        except Exception:
+                            pass
+                    else:
+                        custom_bytes[cb].append(-1)
                     
 
 
@@ -222,10 +253,10 @@ class BytePlot(Qwt.QwtPlot):
         self.setAxisTitle(2, "Packet sequence number")
 
     def row_added(self):
-        l = len(bytes[0])
+        l = len(single_bytes[0])
         for c in self.curves:
-            mask = [j >= 0 for j in bytes[c]]
-            self.set_curve_data(l, self.curves[c], range(l), bytes[c], mask)
+            mask = [j >= 0 for j in single_bytes[c]]
+            self.set_curve_data(l, self.curves[c], range(l), single_bytes[c], mask)
         for c in self.custom_curves:
             mask = [j >= 0 for j in custom_bytes[c]]
             self.set_curve_data(l, self.custom_curves[c], range(l), custom_bytes[c], mask)
@@ -234,10 +265,10 @@ class BytePlot(Qwt.QwtPlot):
 
     def cb_checked(self, column):
         if column not in self.curves:
-            l = len(bytes[0])
-            mask = [j >= 0 for j in bytes[column]]
+            l = len(single_bytes[0])
+            mask = [j >= 0 for j in single_bytes[column]]
             self.curves[column]= ByteCurve("Byte " + str(column))
-            self.set_curve_data(l, self.curves[column], range(l), bytes[column], mask)
+            self.set_curve_data(l, self.curves[column], range(l), single_bytes[column], mask)
 
         r, g, b = colors.pop(random.randint(0, len(colors)-1))
         color = QColor(r, g, b)
@@ -256,41 +287,49 @@ class BytePlot(Qwt.QwtPlot):
 
     def new_custom_bytes(self, string):
         byte_def_strings = [str(s).strip() for s in re.split(',', string)]
+        to_remove = list()
         for cc in self.custom_curves:
             if cc not in byte_def_strings:
+                to_remove.append(cc)
                 self.custom_curves[cc].detach()
                 colors.append(self.custom_curves[cc].pen().brush().color().getRgb()[:-1])
+                del custom_bytes[cc]
+
+        for cc in to_remove:
+            del self.custom_curves[cc]
 
         for d in byte_def_strings:
             if not len(d) == 0:
-                d_run = re.sub(r'\[(\d+)\]', r'bytes[\1][pos]', d)
-
+                d_run = re.sub(r'\[(\d+)\]', r'single_bytes[\1][pos]', d)
+                    
                 # find out what byte values are being used
-                composite_bytes = re.findall(r'bytes\[(\d+)\]', d_run)
+                composite_bytes = re.findall(r'single_bytes\[(\d+)\]', d_run)
 
                 if d not in self.custom_curves:
                     self.custom_curves[d] = ByteCurve(d)
                     custom_bytes[d] = list()
                     self.custom_curves[d].attach(self)
-                    for pos in range(len(bytes[0])):
-                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                    for pos in range(len(single_bytes[0])):
+                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             try:
                                 custom_bytes[d].append(eval(d_run))
-                            except SyntaxError:
-                                #TODO: handle
-                                pass
+                            except Exception, e:
+                                msg = QMessageBox()
+                                msg.setText('There was an error understanding a custom byte value:\n' + e.message)
+                                msg.exec_()
+                                break
                         else:
                             custom_bytes[d].append(-1)
                 else:
-                    for pos in range(len(custom_bytes[d]), len(bytes[0])):
-                        if not -1 in [bytes[int(c)][pos] for c in composite_bytes]:
+                    for pos in range(len(custom_bytes[d]), len(single_bytes[0])):
+                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
                             custom_bytes[d].append(eval(d_run))
                         else:
                             custom_bytes[d].append(-1)
 
                 mask = [j >= 0 for j in custom_bytes[d]]
-                self.set_curve_data(len(bytes[0]), self.custom_curves[d], range(len(bytes[0])), custom_bytes[d], mask)
-
+                self.set_curve_data(len(single_bytes[0]), self.custom_curves[d], range(len(single_bytes[0])), custom_bytes[d], mask)
+                
                 r, g, b = colors.pop(random.randint(0, len(colors)-1))
                 color = QColor(r, g, b)
                 self.custom_curves[d].setPen(QPen(QBrush(color), 2))
@@ -304,11 +343,19 @@ class BytePlot(Qwt.QwtPlot):
             self.setAxisScale(2, length-self.x_range, length)
         else:
             curve.setData(ByteData(x[:self.x_range], y[:self.x_range], mask[:self.x_range]))
-
+                        
     def change_x_range(self, range):
         self.x_range = range
 
         self.row_added()
+
+    def clamp_axis(self, min, max):
+        if min >= 0 and max >= 0:
+            self.setAxisScale(0, min, max)
+        else:
+            self.setAxisAutoScale(0)
+
+        self.replot()
 
 
 class ByteScale(Qwt.QwtScaleDraw):
@@ -382,6 +429,64 @@ class ByteValWidget(QWidget):
         self.byte_vals_changed.emit(str(self.y_axis_edit.text()))
 
 
+class ClampYAxisWidget(QGroupBox):
+    """Let the user specify max and min values for the y-axis."""
+
+    y_axis_vals_changed = pyqtSignal(int, int)
+
+    def __init__(self, title, parent=None):
+        QGroupBox.__init__(self, title, parent)
+
+        self.y_clamp_group_layout = QHBoxLayout()
+        self.y_clamp_group_layout.addWidget(QLabel('Minimum:'))
+        self.y_min = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_min)
+        self.y_clamp_group_layout.addWidget(QLabel('Maximum:'))
+        self.y_max = QLineEdit()
+        self.y_clamp_group_layout.addWidget(self.y_max)
+        self.y_clamp_button = QPushButton('Apply')
+        self.y_clamp_button.clicked.connect(self.clicked)
+        self.y_clamp_group_layout.addWidget(self.y_clamp_button)
+        self.setLayout(self.y_clamp_group_layout)
+        self.setMaximumHeight(100)
+        self.resize(300, 100)
+
+    def clicked(self):
+        if not self.y_min.text() and not self.y_max.text():
+            self.y_axis_vals_changed.emit(-1, -1)
+        elif self.y_min.text() and self.y_max.text():
+            min = int(str(self.y_min.text()), 0)
+            max = int(str(self.y_max.text()), 0)
+
+            self.y_axis_vals_changed.emit(min, max)
+        else:
+            msg = QMessageBox()
+            msg.setText('Please specify a minimum and maximum value, or clear both to reset.')
+            msg.exec_()
+
+
+class PlotWindowSliderWidget(QGroupBox):
+    """Let the user change the width of the plot window."""
+    value_changed = pyqtSignal(int)
+
+    def __init__(self, title, parent=None):
+        QGroupBox.__init__(self, title, parent)
+
+        self.plot_range = QSlider()
+        self.plot_range.setOrientation(Qt.Qt.Horizontal)
+        self.plot_range.setRange(10, 1000)
+        self.plot_range.setValue(200)
+        self.plot_range.setTickInterval(50)
+        self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
+        self.plot_range.valueChanged.connect(lambda val: self.value_changed.emit(val))
+        self.plot_range_labels = QHBoxLayout()
+        self.plot_range_labels.addWidget(QLabel('10'))
+        self.plot_range_labels.addWidget(self.plot_range)
+        self.plot_range_labels.addWidget(QLabel('1000'))
+        self.setLayout(self.plot_range_labels)
+        self.setMaximumHeight(100)
+
+
 class USBGraph(QApplication):
     def __init__(self, argv):
         QApplication.__init__(self, argv)
@@ -398,31 +503,14 @@ class USBGraph(QApplication):
         self.groupvb = QVBoxLayout()
         self.groupvb.addWidget(self.bytevalwidget)
         self.bytevalgroup.setLayout(self.groupvb)
+        self.bytevalgroup.setMaximumHeight(100)
+        self.bytevalgroup.setMinimumWidth(400)
 
-        self.graphvb = QVBoxLayout()
-        self.graphvb.addWidget(self.byteplot)
-        self.plot_range = QSlider()
-        self.plot_range.setOrientation(Qt.Qt.Horizontal)
-        self.plot_range.setRange(10, 1000)
-        self.plot_range.setValue(200)
-        self.plot_range.setTickInterval(50)
-        self.plot_range.setTickPosition(Qt.QSlider.TicksBelow)
-        self.plot_range.valueChanged.connect(self.byteplot.change_x_range)
-        self.plot_range_labels = QHBoxLayout()
-        self.plot_range_labels.addWidget(QLabel('10'))
-        self.plot_range_labels.addWidget(self.plot_range)
-        self.plot_range_labels.addWidget(QLabel('1000'))
-        self.graphvb.addItem(self.plot_range_labels)
+        self.x_range = PlotWindowSliderWidget('Plot Window')
+        self.x_range.value_changed.connect(self.byteplot.change_x_range)
 
-        self.bytepicker = Qwt.QwtPlotPicker(Qwt.QwtPlot.xBottom,
-                                            Qwt.QwtPlot.yLeft,
-                                            Qwt.QwtPicker.RectSelection,
-                                            Qwt.QwtPlotPicker.RectRubberBand,
-                                            Qwt.QwtPicker.ActiveOnly,
-                                            self.byteplot.canvas())
-        self.bytepicker.selected.connect(self.byte_picked)
-        self.bytepicker.appended.connect(self.byte_appended)
-        self.bytepicker.moved.connect(self.byte_moved)
+        self.y_clamp = ClampYAxisWidget('Clamp Y Axis')
+        self.y_clamp.y_axis_vals_changed.connect(self.byteplot.clamp_axis)
 
         self.bytemodel.row_added.connect(self.byteplot.row_added)
         self.bytemodel.row_added.connect(self.byteview.row_added)
@@ -432,15 +520,24 @@ class USBGraph(QApplication):
 
         self.bytevalwidget.byte_vals_changed.connect(self.byteplot.new_custom_bytes)
 
-        self.vb = QVBoxLayout()
-        self.vb.addWidget(self.byteview)
-        self.vb.addWidget(self.bytevalgroup)
+        self.main_area = QSplitter()
+        self.main_area.addWidget(self.byteview)
+        self.main_area.addWidget(self.byteplot)
+        self.main_area.setSizes([400,400])
 
-        self.hb = QHBoxLayout()
-        self.hb.addItem(self.vb)
-        self.hb.addItem(self.graphvb)
+        self.lower_right_area = QVBoxLayout()
+        self.lower_right_area.addWidget(self.x_range)
+        self.lower_right_area.addWidget(self.y_clamp)
+
+        self.lower_area = QHBoxLayout()
+        self.lower_area.addWidget(self.bytevalgroup)
+        self.lower_area.addLayout(self.lower_right_area)
+
+        self.vb = QVBoxLayout()
+        self.vb.addWidget(self.main_area)
+        self.vb.addItem(self.lower_area)
         
-        self.w.setLayout(self.hb)
+        self.w.setLayout(self.vb)
         self.w.show()
 
         self.pcapthread = PcapThread()
@@ -460,7 +557,7 @@ class USBGraph(QApplication):
         pass
 
 
-bytes = list()
+single_bytes = list()
 custom_bytes = {}
 
 

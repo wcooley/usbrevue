@@ -1,9 +1,29 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 import sys
 from optparse import OptionParser
 import pcapy
-from usbrevue import Packet, USBMON_TRANSFER_TYPE
+from usbrevue import Packet, USBMON_TRANSFER_TYPE, SETUP_REQUEST_TYPES
 import codegen
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
@@ -86,6 +106,8 @@ class PacketModel(QAbstractTableModel):
             elif col == DATA_COL:
                 return ' '.join(map(lambda x: "%02X" % x, pack.data))
             elif col == SETUP_COL and pack.is_setup_packet:
+                if pack.setup.bmRequestTypeType == 'standard':
+                    return SETUP_REQUEST_TYPES[pack.setup.bRequest]
                 return pack.setup.data_to_str()
         elif role == Qt.FontRole:
             if col in [SETUP_COL, ADDRESS_COL, DATA_COL]:
@@ -103,10 +125,35 @@ class PacketModel(QAbstractTableModel):
                         pack.busnum, pack.devnum, pack.epnum,
                         ['Isochronous', 'Interrupt', 'Control', 'Bulk'][pack.xfer_type],
                         ['outgoing', 'incoming'][pack.epnum >> 7])
+            if col == SETUP_COL and pack.is_setup_packet:
+                return pack.setup.fields_to_str()
+        elif role == Qt.BackgroundColorRole:
+            if isinstance(pack, Packet):
+                if pack.is_setup_packet:
+                    return self.packet_color(pack)
+                elif pack.event_type == 'C' and pack.is_control_xfer:
+                    # find the corresponding submission, color accordingly
+                    for i in xrange(row, -1, -1):
+                        if isinstance(self.packets[i], Packet) and \
+                                self.packets[i].event_type == 'S' and \
+                                self.packets[i].busnum == pack.busnum and \
+                                self.packets[i].devnum == pack.devnum and \
+                                self.packets[i].epnum == pack.epnum:
+                            return self.packet_color(self.packets[i])
         elif role == Qt.UserRole: # packet object
             return QVariant(pack)
  
         return QVariant()
+
+    def packet_color(self, pack):
+        if not pack.is_setup_packet:
+            return QVariant()
+        if pack.setup.bmRequestTypeType == 'standard':
+            return QColor('lightgray')
+        elif pack.setup.bmRequestTypeType == 'class_':
+            return QColor(250, 230, 190)
+        elif pack.setup.bmRequestTypeType == 'vendor':
+            return QColor(190, 250, 190)
 
     def setData(self, index, value, role = Qt.EditRole):
         if role != Qt.EditRole or index.column() != DATA_COL:
