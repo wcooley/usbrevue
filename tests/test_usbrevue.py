@@ -345,6 +345,7 @@ class TestSetupField(unittest.TestCase,TestUtil):
                         SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
         self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
                          'GET_DESCRIPTOR')
+        self.assertEqual(self.setup.bRequest_str, 'GET_DESCRIPTOR')
 
     def test_brequest_GET_STATUS(self):
         self.set_and_test('bRequest', SETUP_REQUEST_TYPES['GET_STATUS'])
