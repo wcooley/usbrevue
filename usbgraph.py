@@ -19,6 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+"""This is the USB Grapher module. It provides a GUI interface for
+plotting the data payload of USB packets.
+"""
 
 import sys
 from usbview import PcapThread
@@ -160,7 +163,7 @@ class ByteModel(QAbstractTableModel):
 
                 # if all bytes that make up this composite byte are
                 # defined for this new packet, append the appropriate value
-                if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes]:
+                if not -1 in [single_bytes[int(c)][-1] for c in composite_bytes if c < len(single_bytes)]:
                     try:
                         custom_bytes[cb].append(eval(cb_run))
                     except Exception:
@@ -341,7 +344,7 @@ class BytePlot(Qwt.QwtPlot):
                     self.custom_curves[d].attach(self)
                     # back-fill the list of values
                     for pos in range(len(single_bytes[0])):
-                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes]:
+                        if not -1 in [single_bytes[int(c)][pos] for c in composite_bytes if c < len(single_bytes)]:
                             try:
                                 custom_bytes[d].append(eval(d_run))
                             except Exception, e:
