@@ -39,7 +39,7 @@ PRODUCT_ID = 0x2105   # Model L100 Keyboard
 LOGICAL_CFG = 0       
 LOGICAL_IFACE = 0     
 LOGICAL_ALT_SETTING = 0
-DEBUG = True
+DEBUG = False
 
 
 
@@ -119,50 +119,36 @@ class Replayer(object):
         self.vid = vid
         self.pid = pid
 
-        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 1')
         self.device = self.get_usb_device(self.vid, self.pid)
-        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 2')
         if self.device is None:
             raise ValueError('The device with vid=0x%x, pid=0x%x is not connected') % (self.vid, self.pid)
 
-        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 3')
         self.logical_cfg = logical_cfg
         self.set_configuration(self.logical_cfg)
         self.logical_iface = logical_iface
-        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 4')
 
         if self.device.is_kernel_driver_active(self.logical_iface):
             if self.debug: sys.stderr.write( '\nDetaching kernal driver')
             self.device.detach_kernel_driver(self.logical_iface)
-        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 5')
 
         self.logical_alt_setting = logical_alt_setting
         self.set_interface(self.logical_iface, self.logical_alt_setting)
-        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 6')
 
         if self.debug:
             self.print_descriptor_info()
-        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 7')
 
         # sort all endpoints on our interface: incoming interrupts go into 
         # poll_eps, and all others go into eps, indexed by epnum
         self.poll_eps = []
         self.eps = {0x00: None, 0x80: None}
         for ep in self.iface:
-            if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 8')
             if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN and \
                 usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_INTR:
-                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 9')
-                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 10')
                 self.poll_eps.append(ep)
-                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 11')
             else:
-                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 12')
                 self.eps[ep.bEndpointAddress] = ep
-                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 13')
 
         self.timer = Timing(debug=self.debug)
-        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 14')
 
 
     def get_logical_cfg(self):
@@ -175,11 +161,11 @@ class Replayer(object):
         Reset device and endpoint address.
         """
         if self.debug:
-            sys.stderr.write( '\nIn Replayer.reset_device: resetting device')
+            sys.stderr.write( '\nIn Replayer.reset_device: resetting device\n')
         self.device.reset()
         res = self.device.is_kernel_driver_active(self.logical_iface)
         if not res:
-            sys.stderr.write( 'Re-attaching kernal driver')
+            sys.stderr.write( '\nRe-attaching kernal driver\n')
             self.device.attach_kernel_driver(self.logical_iface)
 
 
@@ -187,13 +173,13 @@ class Replayer(object):
         """ Print all usb descriptors """
         sys.stderr.write( '\n\nDevice enumeration tree ...')
         self.print_device_enumeration_tree()
-        sys.stderr.write( '\nDevice descriptor fields ...')
+        sys.stderr.write( '\n\nDevice descriptor fields ...')
         self.print_device_descriptor_fields()
-        sys.stderr.write( '\nConfiguration descriptor fields ...')
+        sys.stderr.write( '\n\nConfiguration descriptor fields ...')
         self.print_cfg_descriptor_fields()
-        sys.stderr.write( '\nInterface descriptor fields ...')
+        sys.stderr.write( '\n\nInterface descriptor fields ...')
         self.print_iface_descriptor_fields()
-        sys.stderr.write( '\nEndpoint descriptor fields ...')
+        sys.stderr.write( '\n\nEndpoint descriptor fields ...')
         self.print_ep_descriptor_fields(self.poll_eps[0])
 
 
@@ -268,7 +254,7 @@ class Replayer(object):
             self.device.set_interface_altsetting(self.iface)
         except usb.core.USBError as e:
             sys.stderr.write( '\nIn Replayer.set_interface: %s ' % e)
-            sys.stderr.write("Error trying to set interface alternate setting")
+            sys.stderr.write("\nError trying to set interface alternate setting")
             pass
 
 
@@ -282,16 +268,16 @@ class Replayer(object):
         if self.debug: self.print_all()
 
         for ep in self.poll_eps:
-            if self.debug: sys.stderr.write( 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress)
+            if self.debug: sys.stderr.write( '\nSpawning poll thread for endpoint 0x%x' % ep.bEndpointAddress)
             thread = PollThread(ep)
             thread.start()
 
         if self.debug:
-            sys.stderr.write( 'Entering Replayer run loop')
+            sys.stderr.write( '\nEntering Replayer run loop')
         while True:
             try:
                 if self.debug:
-                    sys.stderr.write( '------------------------------------------')
+                    sys.stderr.write( '\n------------------------------------------')
                     sys.stderr.write( '\nIn Replayer.run: Starting loop: %d ' % loops)
                 loops += 1
                 hdr, pack = pcap.next()
@@ -311,7 +297,7 @@ class Replayer(object):
                 self.timer.wait_relative(packet.ts_sec, packet.ts_usec)
                 self.send_usb_packet(packet)
             except Exception:
-                sys.stderr.write("Error occured in replayer run loop. Here's the traceback")
+                sys.stderr.write("\nError occured in replayer run loop. Here's the traceback")
                 traceback.print_exc()
                 break
         #wait for keyboard interrupt, let poll threads continue
@@ -336,7 +322,7 @@ class Replayer(object):
         else:
             # Check that packet is on an endpoint we care about
             if packet.epnum not in self.eps:
-                if self.debug: sys.stderr.write( "Ignoring endpoint %s" % hex(packet.epnum))
+                if self.debug: sys.stderr.write( "\nIgnoring endpoint %s" % hex(packet.epnum))
                 return
 
             ep = self.eps[packet.epnum]
@@ -414,8 +400,7 @@ class Replayer(object):
 
     def write_to_device(self, packet, ep):
         """ Write the packet to the devices endpoint. """
-        if self.debug:
-            sys.stderr.write( '\nIn Replayer.write_to_device')
+        if self.debug: sys.stderr.write( '\nIn Replayer.write_to_device')
         numbytes = 0  
         if packet.data:
             numbytes = ep.write(packet.data)
