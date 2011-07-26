@@ -1,4 +1,25 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 from __future__ import division
 
 import sys
@@ -13,7 +34,7 @@ from PyQt4.QtCore import *
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_list('exp', None, 'A comma-separated list of expressions to be applied at data payload byte offsets. Offsets are referenced as "data[0], data[1], ...". Arithmetic operators (+, -, *, /), logical operators (and, or, not), and bitwise operators (^, &, |, !) are supported. For logical xor, use "bool(a) ^ bool(b)".')
+gflags.DEFINE_list('exp',None, 'A comma-separated list of expressions to be applied at data payload byte offsets. Offsets are referenced as "data[0], data[1], ...". Arithmetic operators (+, -, *, /), logical operators (and, or, not), and bitwise operators (^, &, |, !) are supported. For logical xor, use "bool(a) ^ bool(b)".')
 gflags.DEFINE_boolean('verbose', False, 'Verbose mode; display the details of each packet modified.')
 
 
@@ -37,6 +58,35 @@ class Statisfier(object):
         for packet in self.packet_generator('-'):
             self.commit_packet(packet)
 
+        # print out changes to each packet if --verbose
+        #if FLAGS.verbose:
+        #which options did we use
+        if self.isEquals:
+            sys.stderr.write(str(self.numTruePackets))
+            sys.stderr.write('/')
+            sys.stderr.write(str(self.numPackets))
+            sys.stderr.write('\n')
+
+        else:
+            sys.stderr.write('NumPackets = ')
+            sys.stderr.write(str(self.numPackets))
+            sys.stderr.write('\n')
+               
+            #write out for each match the relevant data
+            #currently broken due to loop positioning etc...
+            for match in self.matches_list:
+                sys.stderr.write('Data[')
+                sys.stderr.write(match.group(1))
+                sys.stderr.write(']')
+
+                sys.stderr.write(' Min = ')
+                sys.stderr.write(str(self.datamin[int(match.group(1))]))
+
+                sys.stderr.write(' Max = ')
+                sys.stderr.write(str(self.datamax[int(match.group(1))]))
+                sys.stderr.write('\n')
+
+
     def packet_generator(self, input_stream='-'):
         self.pcap = pcapy.open_offline(input_stream)
 
@@ -53,28 +103,6 @@ class Statisfier(object):
 
     def commit_packet(self, packet):
         self.apply_cmdline_exps(packet)
-##############################################################
-        # print out changes to each packet if --verbose
-        if FLAGS.verbose:
-            if self.isEquals:
-               sys.stderr.write(str(self.numTruePackets))
-               sys.stderr.write('/')
-               sys.stderr.write(str(self.numPackets))
-               sys.stderr.write('\n')
-
-#!! NEEDS WORK. datamin and datamax need to reference correctly
-            else:
-               sys.stderr.write('NumPackets = ')
-               sys.stderr.write(str(self.numPackets))
-               sys.stderr.write('\n')
-               
-               for match in self.matches_list:
-                   if len(packet.data) > 0:
-                       sys.stderr.write(' Min = ')
-                       sys.stderr.write(str(self.datamin[int(match.group(1))]))
-                       sys.stderr.write(' Max = ')
-                       sys.stderr.write(str(self.datamax[int(match.group(1))]))
-                       sys.stderr.write('\n')
 
         if self.pcap is None:
             sys.stderr.write('Attempted to dump packets without first reading them -- make sure to call packet_generator()')
@@ -86,34 +114,38 @@ class Statisfier(object):
     def apply_cmdline_exps(self, packet):
         """Apply the expression supplied at the command line to a packet."""
 
+        #make sure is an expression to use
         if self.cmdline_exps is not None:
             for exp in self.cmdline_exps:
                 max_offset = 0 # highest offset needed to perfrm this expression
 
                 # find max_offset
-                numEquals = re.search("==",exp)
+                numEquals = re.search("==" or ">" or "<",exp)
                 if numEquals:
                    self.isEquals = True
                 else:
                    self.isEquals = False
 
-
+                #if there's anything to save, make sure there's space to save it
                 if self.matches:
                     for match in self.matches:
                         if match.group(1) > max_offset:
                             max_offset = int(match.group(1))
 
+                #what type of operations are we recording
                 if self.isEquals:
                     self.numPackets += 1
                     if len(packet.data) > max_offset:
                         if eval(exp, {}, packet) is True:
                             self.numTruePackets += 1
+
                 else: # isEquals == False
                     if len(self.datamin) < len(packet.data):
                        for num in range(len(packet.data) - len(self.datamin)):
                            self.datamin.append(99999)
                            self.datamax.append(0)
 
+                    #iterate over each match and modify their piece of the list
                     for match in self.matches_list:
                         if len(packet.data) > 0:
                             if packet.data[int(match.group(1))] < self.datamin[int(match.group(1))]:
