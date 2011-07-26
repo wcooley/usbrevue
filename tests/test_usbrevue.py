@@ -273,6 +273,17 @@ class TestPacket(unittest.TestCase,TestUtil):
 
         self.assertNotEqual(self.packet.diff(packet2), ())
 
+    def test_eq_identity(self):
+        """Eq: True with itself"""
+
+        self.assertTrue(self.packet == self.packet)
+
+    def test_eq_copy(self):
+        """Eq: True with unmodified copy"""
+
+        packet2 = self.packet.copy()
+        self.assertTrue(self.packet == packet2)
+
 class TestPacketData(unittest.TestCase,TestUtil):
 
     def setUp(self):

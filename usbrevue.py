@@ -200,6 +200,11 @@ class PackedFields(object):
         """
         return self.datapack.tostring()
 
+    def __eq__(self, other):
+        return self.datapack == other.datapack
+
+    def __ne__(self, other):
+        return self.datapack != other.datapack
 
 class Packet(PackedFields):
     """The ``Packet`` class adds higher-level semantics over the lower-level field
@@ -619,12 +624,6 @@ class SetupField(PackedFields):
         s += ', data: %s' % self.data_to_str()
 
         return s
-
-    def __eq__(self, other):
-        return self.datapack == other.datapack
-
-    def __ne__(self, other):
-        return self.datapack != other.datapack
 
 class WrongPacketXferType(Exception):
     """Exception that should be raised when data Packet fields are accessed for
