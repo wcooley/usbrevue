@@ -381,6 +381,7 @@ To graph from a live stream:
 
 Note that the Grapher has no dumping or output functionality.
 
+
 2. INTERFACE
 
 The Grapher provides a graphical user interface for setting up and
@@ -396,6 +397,7 @@ following components (from the top left and moving clockwise):
     * 'Custom Byte Expressions' - Define custom value(s) based on one
       	      	   		  or more byte offsets to be plotted
 
+
 3. PLOTTING BYTES
 
 Each incoming USB packet data payload is listed as a single row in the
@@ -410,7 +412,7 @@ disable autoscroll in order to click a byte offset checkbox.
 The user can display up to 31 byte curves at one time, including
 simple byte offsets and custom byte expressions (below).
 
-3.1 CUSTOM BYTE EXPRESSIONS
+3.1 Custom Byte Expressions
 
 The 'Custom Byte Expressions' feature allows the user to manipulate
 one or more byte offsets in order to define custom value(s) to
@@ -433,6 +435,7 @@ Separate multiple expressions with commas. To plot the square of byte
 offset 0 and the sum of byte offsets 2 and 3:
 
     [0] ** 2, [2] + [3]
+
 
 4. PLOT OPTIONS
 
@@ -476,29 +479,17 @@ Command line help may be found by executing:
 
 To connect an input source and output destination, use a pipeline. 
 For example, to read from a pcap file called "usbmon.pcap" and replay to 
-a usb device you may do the following:
+a usb device with vendor id 0x1111 and product id 0x2222, you may do 
+the following:
 
-        $ cat usbmon.pcap | sudo usbreplay.py
+        $ cat usbmon.pcap | sudo usbreplay.py --vid 0x1111 --pid 0x2222
 
-To read a pcap stream directly from USB bus 7, do the following: 
 
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbreplay.py
+Another method using command line arguments, to send a dev.pcap file 
+for a keyboard device on interface 3 is as follows.  This particular
+device has vendor id 0x413c and product id 0x2105:
 
-To read a pcap stream directly from USB bus 7, use the modifier to
-modify the stream, and replay the modified packet to the device, do 
-the following: 
-
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbreplay.py
-
-To read a pcap stream directly from USB bus 7, use the modifier to
-modify the stream, view the output, and replay the modified packet to the 
-device, do the following: 
-
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbview.py | ./usbreplay.py
-
-Another method using command line arguments, to send a dev.pcap file for a keyboard device on interface 3 endpoint 0x83, is as follows:
-
-        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -e 0x83 -f dev.pcap
+        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
 
 
 2. THE USB DESCRIPTORS
