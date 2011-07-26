@@ -248,13 +248,24 @@ class TestPacket(unittest.TestCase,TestUtil):
         self.assertNotEqual(packet2.urb, self.packet.urb)
 
     def test_diff_identity(self):
-        """Identity: Diff should return empty-list when comparing with itself."""
+        """Identity: Diff returns empty-list when comparing with itself."""
 
         self.assertEqual(self.packet.diff(self.packet), list())
 
     def test_diff_copy(self):
-        """All-but identity: Diff should return empty-list when comparing with copy of itself."""
+        """Identity-ish: Diff returns empty-list when comparing with copy of itself."""
         self.assertEqual(self.packet.diff(self.packet.copy()), list())
+
+    def test_diff_setup(self):
+        """Diff where only setup sub-field has been changed"""
+
+        packet2 = self.packet.copy()
+        packet2.setup.bmRequestTypeType = 'reserved'
+
+        # Ensure that the original isn't 'reserved'
+        self.assertNotEqual(self.packet.setup.bmRequestTypeType, 'reserved')
+
+        self.assertNotEqual(self.packet.diff(packet2), list())
 
     def test_diff(self):
         packet2 = self.packet.copy()
