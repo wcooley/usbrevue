@@ -13,6 +13,7 @@ YMMV, depending on whether the minimum requirements are met.
           a complete capture.
     * python-pcapy
     * python-qt4
+    * python-gflags
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:
@@ -209,6 +210,18 @@ accessed by referencing setup.[name]:
 		    wIndex
 		    wLength
 
+Alternatively, you can access the transfer direction, type, and
+recipient subfields of the bmRequestType bitmap with the following:
+
+	  	    bmRequestTypeDirection
+		        (possible values: 'host_to_device', 'device_to_host')
+		    bmRequestTypeType
+			(possible values: 'standard', 'class_',
+		        'vendor', 'reserved')
+		    bmRequestTypeRecipient
+			(possible values: 'device', 'interface',
+		        'endpoint', 'other')
+
 The data array may be of variable size, depending on the specific
 packet. For more information about these attributes, see the usbmon
 documentation (probably supplied with your Linux kernel documentation,
@@ -265,7 +278,7 @@ example, the following routine is saved as "mod_routine":
 
 	 if len(data) >= 8:
 	     data[7] = data[0] or data[1]
-	 elif epnum == 0 && !status:
+	 elif epnum == 0 and not status:
 	     status = 1
 
 The routine can be applied to all incoming packets by doing:
@@ -368,6 +381,7 @@ To graph from a live stream:
 
 Note that the Grapher has no dumping or output functionality.
 
+
 2. INTERFACE
 
 The Grapher provides a graphical user interface for setting up and
@@ -383,6 +397,7 @@ following components (from the top left and moving clockwise):
     * 'Custom Byte Expressions' - Define custom value(s) based on one
       	      	   		  or more byte offsets to be plotted
 
+
 3. PLOTTING BYTES
 
 Each incoming USB packet data payload is listed as a single row in the
@@ -397,7 +412,7 @@ disable autoscroll in order to click a byte offset checkbox.
 The user can display up to 31 byte curves at one time, including
 simple byte offsets and custom byte expressions (below).
 
-3.1 CUSTOM BYTE EXPRESSIONS
+3.1 Custom Byte Expressions
 
 The 'Custom Byte Expressions' feature allows the user to manipulate
 one or more byte offsets in order to define custom value(s) to
@@ -420,6 +435,7 @@ Separate multiple expressions with commas. To plot the square of byte
 offset 0 and the sum of byte offsets 2 and 3:
 
     [0] ** 2, [2] + [3]
+
 
 4. PLOT OPTIONS
 

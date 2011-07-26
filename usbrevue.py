@@ -261,7 +261,7 @@ class Packet(PackedFields):
         Return list of 3-tuples of (attr, my_val, other_val)."""
 
         result = list()
-
+        
         for f in self.fields:
             m = getattr(self, f)
             o = getattr(other, f)
