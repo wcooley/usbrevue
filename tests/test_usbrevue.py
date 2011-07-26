@@ -247,6 +247,43 @@ class TestPacket(unittest.TestCase,TestUtil):
         packet2.urb = 0xff
         self.assertNotEqual(packet2.urb, self.packet.urb)
 
+    def test_diff_identity(self):
+        """Identity: Diff returns empty-list when comparing with itself."""
+
+        self.assertEqual(self.packet.diff(self.packet), list())
+
+    def test_diff_copy(self):
+        """Identity-ish: Diff returns empty-list when comparing with copy of itself."""
+        self.assertEqual(self.packet.diff(self.packet.copy()), list())
+
+    def test_diff_setup(self):
+        """Diff where only setup sub-field has been changed"""
+
+        packet2 = self.packet.copy()
+        packet2.setup.bmRequestTypeType = 'reserved'
+
+        # Ensure that the original isn't 'reserved'
+        self.assertNotEqual(self.packet.setup.bmRequestTypeType, 'reserved')
+
+        self.assertNotEqual(self.packet.diff(packet2), list())
+
+    def test_diff(self):
+        packet2 = self.packet.copy()
+        packet2.urb = 0xff
+
+        self.assertNotEqual(self.packet.diff(packet2), ())
+
+    def test_eq_identity(self):
+        """Eq: True with itself"""
+
+        self.assertTrue(self.packet == self.packet)
+
+    def test_eq_copy(self):
+        """Eq: True with unmodified copy"""
+
+        packet2 = self.packet.copy()
+        self.assertTrue(self.packet == packet2)
+
 class TestPacketData(unittest.TestCase,TestUtil):
 
     def setUp(self):
@@ -345,6 +382,7 @@ class TestSetupField(unittest.TestCase,TestUtil):
                         SETUP_REQUEST_TYPES['GET_DESCRIPTOR'])
         self.assertEqual(SETUP_REQUEST_TYPES[self.setup.bRequest],
                          'GET_DESCRIPTOR')
+        self.assertEqual(self.setup.bRequest_str, 'GET_DESCRIPTOR')
 
     def test_brequest_GET_STATUS(self):
         self.set_and_test('bRequest', SETUP_REQUEST_TYPES['GET_STATUS'])
