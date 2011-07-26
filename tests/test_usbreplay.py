@@ -43,69 +43,50 @@ DEBUG=True
 
 class TestDevice(unittest.TestCase, TestUtil):
 
-    def setup(self):
+    def setUp(self):
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.setup for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.setup for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         try:
             replayer.reset_device()
         except usb.core.USBError as e:
-            print 'Exception in setup: ', e
+            sys.stderr.write( 'Exception in setup: ', e)
             pass
 
 
-    def teardown(self):
+    def tearDown(self):
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.teardown for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
-        print 'Resetting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.teardown for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
+        sys.stderr.write( 'Resetting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         try:
             replayer.reset_device()
         except usb.core.USBError as e:
-            print 'Exception in teardown: ', e
+            sys.stderr.write( 'Exception in teardown: ', e)
             pass
 
 
     def print_device(self):
         """ Print the vendor and product id's for this device """
-        print '\nTesting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+        sys.stderr.write( '\nTesting device with vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
 
 
     def test_device(self):
         """ Test that this usb device really exists """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_device for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_device for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         # find our device
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         # Was device found?
         self.assertNotEqual(dev, None, 'No device available with vid=%s, pid=%s' % (replayer.device.idVendor, replayer.device.idProduct))
 
 
-    def test_kernel_driver(self):
-        """ Test the kernel driver for this usb device """
-        global replayer
-        if replayer.debug:
-            print '\nIn TestDevice.test_kernel_driver for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
-        res = replayer.device.is_kernel_driver_active(replayer.logical_iface)
-        if res == False:
-            res = replayer.device.attach_kernel_driver(replayer.logical_iface)
-        if replayer.debug:
-            print '\nResult of is kernel driver active is', res
-        if res is not None:
-            self.assertEqual(res, True, 'Kernel driver for vendorId 0x%x, productId 0x%x is not active' % (replayer.device.idVendor, replayer.device.idProduct))
-        if replayer.debug:
-            print 'Detaching kernal driver'
-        res = replayer.device.detach_kernel_driver(replayer.logical_iface)
-        if replayer.debug:
-            print 'Result of detach is', res
-
-   
     def test_eps(self):
         """ Test all used endpoints for this usb device """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_eps for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_eps for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         dev = usb.core.find(idVendor=replayer.device.idVendor, idProduct=replayer.device.idProduct)
         for cfg in dev:
             self.assertEqual(cfg.bConfigurationValue, replayer.cfg.bConfigurationValue)
@@ -115,27 +96,27 @@ class TestDevice(unittest.TestCase, TestUtil):
                 for ep in iface:
                     for i in range(len(replayer.eps)):
                         if replayer.debug:
-                            print '\n%d: ep address is 0x%x\n' % (i, ep.bEndpointAddress)
-                            print '%d: replayer eps = %s' % (i, replayer.eps)
-                            print '%d: ep.bEndpointAddress = 0x%x' % (i, ep.bEndpointAddress)
-                            print 'replayer.eps =', replayer.eps 
+                            sys.stderr.write( '\n%d: ep address is 0x%x\n' % (i, ep.bEndpointAddress))
+                            sys.stderr.write( '%d: replayer eps = %s' % (i, replayer.eps))
+                            sys.stderr.write( '%d: ep.bEndpointAddress = 0x%x' % (i, ep.bEndpointAddress))
+                            sys.stderr.write( 'replayer.eps =', replayer.eps )
                         if ep.bEndpointAddress in replayer.eps:
                             if replayer.debug:
-                                print 'Got an ep'
+                                sys.stderr.write( 'Got an ep')
                             ep_found = True
                             if replayer.debug:
-                                print 'Endpoint %d found' % ep.epnum
+                                sys.stderr.write( 'Endpoint %d found' % ep.epnum)
 
                     for j in range(len(replayer.poll_eps)):
                         if replayer.debug:
-                            print '%d: replayer.poll_eps = %s' % (j, replayer.poll_eps)
-                            print '%d: replayer.poll_eps[j].bEndpointAddress = %s' % (j, replayer.poll_eps[j].bEndpointAddress)
+                            sys.stderr.write( '%d: replayer.poll_eps = %s' % (j, replayer.poll_eps))
+                            sys.stderr.write( '%d: replayer.poll_eps[j].bEndpointAddress = %s' % (j, replayer.poll_eps[j].bEndpointAddress))
                         if ep.bEndpointAddress == replayer.poll_eps[j].bEndpointAddress:
                             if replayer.debug:
-                                print 'Got a poll ep'
+                                sys.stderr.write( 'Got a poll ep')
                             ep_found = True
                             if replayer.debug:
-                                print 'Endpoint at address 0x%x found' % (ep.bEndpointAddress)
+                                sys.stderr.write( 'Endpoint at address 0x%x found' % (ep.bEndpointAddress))
 
                     self.assertTrue(ep_found, 'No endpoint could be found')
 
@@ -145,7 +126,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """ Test for a valid replayer instance """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_replayer for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_replayer for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         self.assertNotEqual(replayer, None, 'Replayer not instantiated')
           
 
@@ -161,7 +142,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_device_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_device_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         devdesc = replayer.device
         #dsc = self.backend.get_device_descriptor(self.device)
         self.assertEqual(devdesc.bLength, 18, 'Incorrect device descriptor length')
@@ -184,7 +165,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         self.assertEqual(devdesc.bDeviceSubClass, 0x00, 'Incorrect device descriptor bDeviceSubClass')
         self.assertEqual(devdesc.bDeviceProtocol, 0x00, 'Incorrect device descriptor bDeviceProtocol')
         if replayer.debug:
-            print 'Actual device descriptor fields are ...'
+            sys.stderr.write( 'Actual device descriptor fields are ...')
             replayer.print_device_descriptor_fields()
 
 
@@ -195,7 +176,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         global replayer
         self.print_device()
         if replayer.debug:
-            print '\nIn TestDevice.print_cfg_descriptor_fields for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.sys.stderr.write(_cfg_descriptor_fields for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         cfgdesc = replayer.cfg
         # bLength = Size of configuration descriptor in bytes (number).
         self.assertEqual(cfgdesc.bLength, 9, 'Incorrect configuration descriptor bLength')
@@ -216,7 +197,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         # bMaxPower = Maximum power consumption in 2mA units (mA).
         self.assertNotEqual(cfgdesc.bMaxPower, 0, 'Incorrect configuration descriptor bMaxPower')
         if replayer.debug:
-            print 'Actual configuration descriptor fields are ...'
+            sys.stderr.write( 'Actual configuration descriptor fields are ...')
             replayer.print_cfg_descriptor_fields()
 
 
@@ -226,7 +207,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_iface_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_iface_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         ifacedesc = replayer.iface
 
         # bLength = Size of interface descriptor in bytes (number).
@@ -236,31 +217,31 @@ class TestDevice(unittest.TestCase, TestUtil):
         self.assertEqual(ifacedesc.bDescriptorType, 0x04, 'Incorrect interface descriptor bDescriptorType')
 
         # bInterfaceNumber = Number of interface (number).
-        #print 'bInterfaceNumber = ', iface.bInterfaceNumber
+        #sys.stderr.write( 'bInterfaceNumber = ', iface.bInterfaceNumber)
 
         # bAlternateSetting = Value used to select alternate setting (number).
-        #print 'bAlternateSetting = ', iface.bAlternateSetting
+        #sys.stderr.write( 'bAlternateSetting = ', iface.bAlternateSetting)
 
         # bNumEndpoints = Number of endpoints used for this interface (number).
         # This excludes endpoint 0.
-        #print 'bNumEndpoints = ', iface.bNumEndpoints
+        #sys.stderr.write( 'bNumEndpoints = ', iface.bNumEndpoints)
         self.assertNotEqual(ifacedesc.bNumEndpoints, 0, 'Incorrect interface descriptor bNumEndpoints')
 
         # bInterfaceClass = Class code assigned by USB org (class).
         # Class could be HID, communicatins, mass storage, etc.
-        #print 'bInterfaceClass = ', iface.bInterfaceClass
+        #sys.stderr.write( 'bInterfaceClass = ', iface.bInterfaceClass)
 
         # bInterfaceSubClass = SubClass code assigned by USB org (subClass).
-        #print 'bInterfaceSubClass = ', iface.bInterfaceSubClass
+        #sys.stderr.write( 'bInterfaceSubClass = ', iface.bInterfaceSubClass)
 
         # bInterfaceProtocol = Protocol code assigned by USB org (protocol).
-        #print 'bInterfaceProtocol = ', iface.bInterfaceProtocol
+        #sys.stderr.write( 'bInterfaceProtocol = ', iface.bInterfaceProtocol)
 
         # iInterface = Index of string descriptor describing this interface (index).
-        #print 'iInterface = ', ifacedesc.iInterface
+        #sys.stderr.write( 'iInterface = ', ifacedesc.iInterface)
 
         if replayer.debug:
-            print 'Actual interface descriptor fields are ...'
+            sys.stderr.write( 'Actual interface descriptor fields are ...')
             replayer.print_iface_descriptor_fields()
 
 
@@ -270,7 +251,7 @@ class TestDevice(unittest.TestCase, TestUtil):
         """
         global replayer
         if replayer.debug:
-            print '\nIn TestDevice.test_ep_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.test_ep_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         for i in range(len(replayer.poll_eps)):
             poll_ep = replayer.poll_eps[i]
             self.print_ep_info(poll_ep)
@@ -279,14 +260,14 @@ class TestDevice(unittest.TestCase, TestUtil):
     def print_ep_info(self, ep):
         """ Print out some poll endpoint information """
         if replayer.debug:
-            print '\nIn TestDevice.print_ep_info for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct)
+            sys.stderr.write( '\nIn TestDevice.sys.stderr.write(_ep_info for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
         if not ep.bEndpointAddress:
-            print 'This endpoint does not have a valid address'
+            sys.stderr.write( 'This endpoint does not have a valid address')
             return
 
         if replayer.debug:
-            print '\nPoll endpoints are: ', ep.bEndpointAddress
-            print 'Actual poll endpoint descriptor fields are ...'
+            sys.stderr.write( '\nPoll endpoints are: ', ep.bEndpointAddress)
+            sys.stderr.write( 'Actual poll endpoint descriptor fields are ...')
             replayer.print_ep_descriptor_fields(ep)
 
         # bLength = Size of endpoint descriptor in bytes (number).
@@ -298,16 +279,16 @@ class TestDevice(unittest.TestCase, TestUtil):
 
         # bEndpointAddress = Endpoint descriptor (0x05) in bytes (constant).
         # Bits 0-3=endpoint number, Bits 4-6=0, Bit 7=0(out) or 1(in).
-        #print 'bEndpointAddress = 0x%x' % ep.bEndpointAddress
+        #sys.stderr.write( 'bEndpointAddress = 0x%x' % ep.bEndpointAddress)
         # bmAttributes = Bits 0-1=Transfer type, other bits refer to
         # synchronization type, usage type (iso mode) (bitmap).
         # Transfer types: 00=Control, 01=Isochronous, 10=Bulk, 11=Interrupt.
-        #print 'bmAttributes = ', ep.bmAttributes
+        #sys.stderr.write( 'bmAttributes = ', ep.bmAttributes)
 
         # wMaxPacketSize = Max packet size this endpoint is capable of
         # sending or receiving (number).
         # This is the maximum payload size for this endpoint.
-        #print 'wMaxPacketSize = ', ep.wMaxPacketSize
+        #sys.stderr.write( 'wMaxPacketSize = ', ep.wMaxPacketSize)
         self.assertNotEqual(ep.wMaxPacketSize, 0, 'Incorrect endpoint descriptor wMaxPacketSize')
 
         # bInterval = Interval for polling endpoint data transfers.
@@ -341,10 +322,10 @@ def print_devices(devices):
     """ 
     Print the vendor and product ids of this usb device.
     """
-    print 'Devices being tested are ...'
+    sys.stderr.write( 'Devices being tested are ...')
     for dev in devices:
-       print 'vid = 0x%x,  pid = 0x%x' % (dev.idVendor, dev.idProduct)  
-    print '\n'
+       sys.stderr.write( 'vid = 0x%x,  pid = 0x%x' % (dev.idVendor, dev.idProduct)  )
+    sys.stderr.write( '\n')
 
 
 if __name__ == '__main__':
@@ -353,16 +334,15 @@ if __name__ == '__main__':
     suite = unittest.TestSuite()
     devices = []
     devices = get_usb_devices()
-    print_devices(devices)
+    sys.stderr.write('\n%s' % devices)
     try:
         for dev in devices:
             replayer = usbreplay.Replayer(vid=dev.idVendor, pid=dev.idProduct, debug=DEBUG)
             suite.addTest(loader.loadTestsFromTestCase(TestDevice))
             unittest.TextTestRunner(verbosity=2).run(suite)
             suite = unittest.TestSuite()
-            replayer = None
     except usb.core.USBError as e:
         if str(e) == "Unknown Error":
             pass
-        print e
+        sys.stderr.write( e)
 

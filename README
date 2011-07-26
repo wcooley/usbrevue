@@ -467,25 +467,10 @@ a usb device you may do the following:
 
         $ cat usbmon.pcap | sudo usbreplay.py
 
-To read a pcap stream directly from USB bus 7, do the following: 
 
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbreplay.py
+Another method using command line arguments, to send a dev.pcap file for a keyboard device on interface 3 is as follows:
 
-To read a pcap stream directly from USB bus 7, use the modifier to
-modify the stream, and replay the modified packet to the device, do 
-the following: 
-
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbreplay.py
-
-To read a pcap stream directly from USB bus 7, use the modifier to
-modify the stream, view the output, and replay the modified packet to the 
-device, do the following: 
-
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...] | ./usbview.py | ./usbreplay.py
-
-Another method using command line arguments, to send a dev.pcap file for a keyboard device on interface 3 endpoint 0x83, is as follows:
-
-        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -e 0x83 -f dev.pcap
+        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
 
 
 2. THE USB DESCRIPTORS
