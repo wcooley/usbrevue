@@ -479,12 +479,15 @@ Command line help may be found by executing:
 
 To connect an input source and output destination, use a pipeline. 
 For example, to read from a pcap file called "usbmon.pcap" and replay to 
-a usb device you may do the following:
+a usb device with vendor id 0x1111 and product id 0x2222, you may do 
+the following:
 
-        $ cat usbmon.pcap | sudo usbreplay.py
+        $ cat usbmon.pcap | sudo usbreplay.py --vid 0x1111 --pid 0x2222
 
 
-Another method using command line arguments, to send a dev.pcap file for a keyboard device on interface 3 is as follows:
+Another method using command line arguments, to send a dev.pcap file 
+for a keyboard device on interface 3 is as follows.  This particular
+device has vendor id 0x413c and product id 0x2105:
 
         $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
 
