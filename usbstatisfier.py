@@ -30,8 +30,8 @@ class Statisfier(object):
         self.datamax = list()
      
         for exp in self.cmdline_exps:
-          self.matches = re.finditer("data\[(\d+)\]", exp)
-          sys.stderr.write(str(exp))
+          self.matches = re.finditer(r"data\[(\d+)\]", exp)
+        self.matches_list = [m for m in self.matches]
 
     def run(self):
         for packet in self.packet_generator('-'):
@@ -67,15 +67,14 @@ class Statisfier(object):
                sys.stderr.write('NumPackets = ')
                sys.stderr.write(str(self.numPackets))
                sys.stderr.write('\n')
-
-               print self.matches
-               for match in self.matches:
-                 sys.stderr.write(str(match.groups()))
-                 sys.stderr.write(' Min = ')
-                 sys.stderr.write(str(self.datamin[int(match.group(1))]))
-                 sys.stderr.write(' Max = ')
-                 sys.stderr.write(str(self.datamax[int(match.group(1))]))
-                 sys.stderr.write('\n')
+               
+               for match in self.matches_list:
+                   if len(packet.data) > 0:
+                       sys.stderr.write(' Min = ')
+                       sys.stderr.write(str(self.datamin[int(match.group(1))]))
+                       sys.stderr.write(' Max = ')
+                       sys.stderr.write(str(self.datamax[int(match.group(1))]))
+                       sys.stderr.write('\n')
 
         if self.pcap is None:
             sys.stderr.write('Attempted to dump packets without first reading them -- make sure to call packet_generator()')
@@ -115,13 +114,14 @@ class Statisfier(object):
                            self.datamin.append(99999)
                            self.datamax.append(0)
 
-                    for match in self.matches:
-                        if packet.data[int(match.group(1))] < self.datamin[int(match.group(1))]:
-                            self.datamin[int(match.group(1))] = packet.data[int(match.group(1))]
+                    for match in self.matches_list:
+                        if len(packet.data) > 0:
+                            if packet.data[int(match.group(1))] < self.datamin[int(match.group(1))]:
+                                self.datamin[int(match.group(1))] = packet.data[int(match.group(1))]
 
-                        if packet.data[int(match.group(1))] > self.datamax[int(match.group(1))]:
-                            self.datamax[int(match.group(1))] = packet.data[int(match.group(1))]
-
+                            if packet.data[int(match.group(1))] > self.datamax[int(match.group(1))]:
+                                self.datamax[int(match.group(1))] = packet.data[int(match.group(1))]
+                                
                     self.numPackets += 1
 
     # accessors and mutators
