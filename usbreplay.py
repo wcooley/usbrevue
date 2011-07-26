@@ -1,4 +1,25 @@
-#!/usr/ain/env python
+#!/usr/bin/env python
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 
 import sys
 import usb.core
@@ -12,39 +33,23 @@ import math
 import signal
 from threading import Thread
 
-#For skype handset
-#VENDOR_ID = 0x1778
-#PRODUCT_ID = 0x0406
-#EP_ADDRESS = 0x83
-#CFG_NUM = 0
-#IFACE_NUM = 3
-#LT_SETTING_NUM = 0
-
-#For my mouse on Ubuntu linux Virtual Box for ep 1
-#VENDOR_ID = 0x80ee
-#PRODUCT_ID = 0x0021
-#EP_ADDRESS = 0x81
-#CFG_NUM = 0
-#IFACE_NUM = 0
-#ALT_SETTING_NUM = 0
-
-#For capstone14.cs.pdx.edu USB keyboard 
+# Defaults for capstone14.cs.pdx.edu USB keyboard 
 VENDOR_ID = 0x413c    # Dell Computer Corp.
 PRODUCT_ID = 0x2105   # Model L100 Keyboard
-LOGICAL_CFG = 0   # 1 interface, bConfigurationValue=1
-LOGICAL_IFACE = 0 # HID Device Descriptor.bHID=1.10, 1 ep descriptor
-                        # bInterfaceClass=3 (Human Interface device)
+LOGICAL_CFG = 0       
+LOGICAL_IFACE = 0     
 LOGICAL_ALT_SETTING = 0
-LOGICAL_EP = 0    # EP 1 IN
-EP_ADDRESS = 0x81     # EP 1 IN, xferType=Interrupt, bmAttributes=3 
-                        # (Transfer Type, Synch Type, Usage Type)
-#BUS = 0x6
-#DEVICE = 0x3
-DEBUG = False
+DEBUG = True
 
 
 
 class Timing(object):
+    """ 
+    Class to ensure timing of each packet processed matches timing of
+    packets being replayed.  Timing information is based on each packet's
+    timestamp.
+    """
+      
     def __init__(self, max_wait=5, debug=False):
         self.prev_ts = None
         self.max_wait = max_wait
@@ -69,7 +74,7 @@ class Timing(object):
         now = time.time()
         until = now + min(dur, self.max_wait)
         if self.debug:
-            print "waiting for %s" % (until - now)
+            sys.stderr.write("waiting for %s" % (until - now))
         while now < until:
             time.sleep(until-now)
             now = time.time()
@@ -90,7 +95,7 @@ class PollThread(Thread):
                 if str(e) == "Operation timed out":
                     # there must be a better way
                     continue
-                print e
+                sys.stderr.write(e)
                 break
 
 
@@ -100,8 +105,6 @@ class Replayer(object):
     Class that encapsulates functionality to replay pcap steam packets 
     to a USB device.
     """
-
-    #def __init__(self, vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=LOGICAL_CFG, logical_iface=LOGICAL_IFACE, logical_alt_setting=LOGICAL_ALT_SETTING, infile='-', debug=DEBUG):
     def __init__(self, vid=VENDOR_ID, pid=PRODUCT_ID, logical_cfg=0, logical_iface=0, logical_alt_setting=0, infile='-', debug=DEBUG):
         """
         Constructor to initialize to the various usb fields, such as vendor
@@ -110,71 +113,87 @@ class Replayer(object):
         the USB device and set the appropriate parameters.
         """
         self.debug = debug
-        if self.debug: print '\nIn Replayer.__init__'
+        if self.debug: sys.stderr.write('\nIn Replayer.__init__')
         self.init_handlers()
         self.urbs = []
         self.vid = vid
         self.pid = pid
 
+        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 1')
         self.device = self.get_usb_device(self.vid, self.pid)
+        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 2')
         if self.device is None:
             raise ValueError('The device with vid=0x%x, pid=0x%x is not connected') % (self.vid, self.pid)
 
+        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 3')
         self.logical_cfg = logical_cfg
         self.set_configuration(self.logical_cfg)
-
-        self.logical_alt_setting = logical_alt_setting
         self.logical_iface = logical_iface
-        self.set_interface(self.logical_iface, self.logical_alt_setting)
+        if self.debug: sys.stderr.write('\nIn Replayer.__init__ 4')
 
         if self.device.is_kernel_driver_active(self.logical_iface):
-            if self.debug: print 'Detaching kernal driver'
+            if self.debug: sys.stderr.write( '\nDetaching kernal driver')
             self.device.detach_kernel_driver(self.logical_iface)
+        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 5')
+
+        self.logical_alt_setting = logical_alt_setting
+        self.set_interface(self.logical_iface, self.logical_alt_setting)
+        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 6')
 
         if self.debug:
             self.print_descriptor_info()
+        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 7')
 
         # sort all endpoints on our interface: incoming interrupts go into 
         # poll_eps, and all others go into eps, indexed by epnum
         self.poll_eps = []
         self.eps = {0x00: None, 0x80: None}
         for ep in self.iface:
+            if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 8')
             if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN and \
                 usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_INTR:
+                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 9')
+                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 10')
                 self.poll_eps.append(ep)
+                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 11')
             else:
+                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 12')
                 self.eps[ep.bEndpointAddress] = ep
+                if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 13')
 
         self.timer = Timing(debug=self.debug)
+        if self.debug: sys.stderr.write( '\nIn Replayer.__init__ 14')
 
 
     def get_logical_cfg(self):
+        """ Get the logical configuration index for this device """
+        if self.debug: sys.stderr.write( '\nIn Replayer.get_logical_cfg')
         self.logical_cfg = self.get_logical_cfg()
 
     def reset_device(self):
         """ 
-        Utility function to reset device. 
-        and endpoint address.
+        Reset device and endpoint address.
         """
         if self.debug:
-            print '\nIn Replayer.reset_device: resetting device'
+            sys.stderr.write( '\nIn Replayer.reset_device: resetting device')
         self.device.reset()
         res = self.device.is_kernel_driver_active(self.logical_iface)
         if not res:
-            print 'Re-attaching kernal driver'
+            sys.stderr.write( 'Re-attaching kernal driver')
             self.device.attach_kernel_driver(self.logical_iface)
 
 
     def print_all(self):
-        print '\n\nDevice enumeration tree ...'
+        """ Print all usb descriptors """
+        sys.stderr.write( '\n\nDevice enumeration tree ...')
         self.print_device_enumeration_tree()
-        print '\nDevice descriptor fields ...'
+        sys.stderr.write( '\nDevice descriptor fields ...')
         self.print_device_descriptor_fields()
-        print '\nConfiguration descriptor fields ...'
+        sys.stderr.write( '\nConfiguration descriptor fields ...')
         self.print_cfg_descriptor_fields()
-        print '\nInterface descriptor fields ...'
+        sys.stderr.write( '\nInterface descriptor fields ...')
         self.print_iface_descriptor_fields()
-        print '\nEndpoint descriptor fields ...'
+        sys.stderr.write( '\nEndpoint descriptor fields ...')
         self.print_ep_descriptor_fields(self.poll_eps[0])
 
 
@@ -196,7 +215,7 @@ class Replayer(object):
         Get the usb.core.Device object based on vendorId and productId.  
         """
         if self.debug:
-            print '\nIn Replayer.get_usb_device'
+            sys.stderr.write( '\nIn Replayer.get_usb_device')
         device = usb.core.find(idVendor=vid, idProduct=pid)
         if device is None:
             raise ValueError('USB Device with vendorId', vid, ', and productId', pid, 'not found')
@@ -217,7 +236,7 @@ class Replayer(object):
           config = dev[1]
         """
         if self.debug:
-            print '\nIn Replayer.set_configuration'
+            sys.stderr.write( '\nIn Replayer.set_configuration')
         self.cfg = self.device[logical_cfg]
 
 
@@ -243,12 +262,12 @@ class Replayer(object):
           iface = cfg[(0,0)]
         """
         if self.debug:
-            print '\nIn Replayer.set_interface'
+            sys.stderr.write( '\nIn Replayer.set_interface')
         self.iface = self.cfg[(logical_iface, logical_alt_setting)]
         try:
             self.device.set_interface_altsetting(self.iface)
         except usb.core.USBError as e:
-            print '\nIn Replayer.set_interface ', e
+            sys.stderr.write( '\nIn Replayer.set_interface: %s ' % e)
             sys.stderr.write("Error trying to set interface alternate setting")
             pass
 
@@ -258,22 +277,22 @@ class Replayer(object):
         Run the replayer loop.  The loop will get each consecutive pcap 
         packet and replay it as nearly as possible.
         """
-        MAX_LOOPS = 10
+        if self.debug: sys.stderr.write( '\nIn Replayer.run')
         loops = 0
         if self.debug: self.print_all()
 
         for ep in self.poll_eps:
-            if self.debug: print 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress
+            if self.debug: sys.stderr.write( 'Spawning poll thread for endpoint 0x%x' % ep.bEndpointAddress)
             thread = PollThread(ep)
             thread.start()
 
         if self.debug:
-            print 'Entering Replayer run loop'
+            sys.stderr.write( 'Entering Replayer run loop')
         while True:
             try:
                 if self.debug:
-                    print '------------------------------------------'
-                    print '\nIn Replayer.run: Starting loop ', loops
+                    sys.stderr.write( '------------------------------------------')
+                    sys.stderr.write( '\nIn Replayer.run: Starting loop: %d ' % loops)
                 loops += 1
                 hdr, pack = pcap.next()
                 if hdr is None:
@@ -283,9 +302,9 @@ class Replayer(object):
                 if self.debug:
                     #print '\nIn run: Dumping pcap packet data ...'
                     #out.dump(hdr, packet.repack())
-                    print '\nIn Replayer.run: Printing pcap field info...'
+                    sys.stderr.write( '\nIn Replayer.run: Printing pcap field info...')
                     packet.print_pcap_fields()
-                    print '\nIn Replayer.run: Printing pcap summary info...'
+                    sys.stderr.write( '\nIn Replayer.run: Printing pcap summary info...')
                     packet.print_pcap_summary()
 
                 # Wait for awhile before sending next usb packet
@@ -309,7 +328,7 @@ class Replayer(object):
         device.  In any case, there may or may not be a data payload.
         """
         if self.debug:
-            print '\nIn Replayer.send_usb_packet'
+            sys.stderr.write( '\nIn Replayer.send_usb_packet')
 
         # Check to see if this is a setup packet.
         if packet.is_setup_packet:
@@ -317,7 +336,7 @@ class Replayer(object):
         else:
             # Check that packet is on an endpoint we care about
             if packet.epnum not in self.eps:
-                if self.debug: print "Ignoring endpoint %s" % hex(packet.epnum)
+                if self.debug: sys.stderr.write( "Ignoring endpoint %s" % hex(packet.epnum))
                 return
 
             ep = self.eps[packet.epnum]
@@ -334,14 +353,15 @@ class Replayer(object):
 
 
     def send_setup_packet(self, packet):
+        """ Send the usb setup packet. """
         if self.debug:
-            print '\nIn Replayer.send_usb_packet: this is a setup packet with urb id = ', packet.urb
+            sys.stderr.write( '\nIn Replayer.send_usb_packet: this is a setup packet with urb id = 0x%x' % packet.urb)
         #if packet.urb not in self.urbs:
         if self.debug:
-            print 'Appending 0x%x to urb list' % packet.urb
+            sys.stderr.write( 'Appending 0x%x to urb list' % packet.urb)
         self.urbs.append(packet.urb)
         if self.debug:
-            print 'Current urbs = ', self.urbs
+            sys.stderr.write( 'Current urbs = 0x%x' % self.urbs)
 
         # IN means read bytes from device to host.
         if (packet.epnum == 0x80):
@@ -352,36 +372,39 @@ class Replayer(object):
 
 
     def ctrl_transfer_to_device(self, packet):
+        """ Send the control transfer packet from the host to the device. """
         # If no data payload then send_array should be None
         if self.debug:
-            print '\nIn Replayer.send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = ', packet.urb
+            sys.stderr.write( '\nIn Replayer.send_usb_packet: Setup packet direction is OUT - writing from host to device for packet urb id = 0x%x' % packet.urb)
         numbytes = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.data)
         if numbytes != len(packet.data):
-            print 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data))
+            sys.stderr.write( 'Error: %d bytes sent in OUT control transfer out of %d bytes we attempted to send' % (numbytes, len(packet.data)))
 
 
     def ctrl_transfer_from_device(self, packet):
+        """ Send the control transfer packet from the device to the host. """
         # If no data payload then numbytes should be 0
         if self.debug:
-            print 'IN direction (reading bytes from device to host for packet urb id = ', packet.urb
+            sys.stderr.write( 'In Replayer.ctrl_transfer_from_device')
+            sys.stderr.write( 'IN direction (reading bytes from device to host for packet urb id = 0x%x' % packet.urb)
         ret_array = self.device.ctrl_transfer(packet.setup.bmRequestType, packet.setup.bRequest, packet.setup.wValue, packet.setup.wIndex, packet.setup.wLength)
         if len(ret_array) != packet.length:
-            print 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to read' % (len(ret_array), packet.length)
+            sys.stderr.write( 'Error: %d bytes read in IN control transfer out of %d bytes we attempted to read' % (len(ret_array), packet.length))
 
 
     def send_submission_packet(self, packet, ep):
+        """ Send the submission packet. """
         # Otherwise check to see if it is a submission packet.
         # A submission can be either a read or write so check direction.
         # Submission means xfer from host to USB device.
-        # Every submission or setup packet should have a callback?
         if self.debug:
-            print '\nIn Replayer.send_usb_packet: this is a submission packet for urb id = ', packet.urb
+            sys.stderr.write( '\nIn Replayer.send_submission_packet: this is a submission packet for urb id = 0x%x' % packet.urb)
         #if packet.urb not in self.urbs:
         if self.debug:
-            print 'Appending 0x%x to urb list' % packet.urb
+            sys.stderr.write( 'Appending 0x%x to urb list' % packet.urb)
         self.urbs.append(packet.urb)
         if self.debug:
-            print 'Current urbs = ', self.urbs
+            sys.stderr.write( 'Current urbs =  0x%x' % self.urbs)
 
         if usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN:
             self.read_from_device(packet, ep)
@@ -390,146 +413,171 @@ class Replayer(object):
 
 
     def write_to_device(self, packet, ep):
+        """ Write the packet to the devices endpoint. """
+        if self.debug:
+            sys.stderr.write( 'In Replayer.write_to_device')
         numbytes = 0  
         if packet.data:
             numbytes = ep.write(packet.data)
         else:
             if self.debug:
-                print 'Packet data is empty.  No submission data to send.'
+                sys.stderr.write( 'Packet data is empty.  No submission data to send.')
         if self.debug:
-            print 'Wrote %d submission bytes to USB device, expected to write %d bytes ' %(numbytes, packet.len_cap)
+            sys.stderr.write( 'Wrote %d submission bytes to USB device, expected to write %d bytes ' %(numbytes, packet.len_cap))
         if numbytes != packet.len_cap:
-            print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, packet.len_cap)
+            sys.stderr.write( 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (numbytes, packet.len_cap))
 
 
     def read_from_device(self, packet, ep):
+        """ Read the packet from the devices endpoint. """
+        if self.debug:
+            sys.stderr.write( 'In Replayer.read_from_device')
         TIMEOUT = 1000
         ret_array = []
         if self.debug:
-            print 'Attempting to read %d bytes from device to host' % packet.length
+            sys.stderr.write( 'Attempting to read %d bytes from device to host' % packet.length)
         if packet.length:
             try:
                 ret_array = ep.read(packet.length, TIMEOUT)
             except usb.core.USBError as e:
-                print '\nIn Replayer.read_from_device ', e
+                sys.stderr.write( '\nIn Replayer.read_from_device: %s' % e)
 
             if self.debug:
-                print 'Finished attempting to read %d callback bytes from device to host' % packet.length
-                print 'Actually read %d callback bytes from device to host' % len(ret_array)
+                sys.stderr.write( 'Finished attempting to read %d callback bytes from device to host' % packet.length)
+                sys.stderr.write( 'Actually read %d callback bytes from device to host' % len(ret_array))
             if ret_array:
                 if self.debug:
-                    print '%d data items read from callback packet.  Data = %s' % (len(ret_array), ret_array)
+                    sys.stderr.write( '%d data items read from callback packet.  Data = %s' % (len(ret_array), ret_array))
                 if packet.length != len(ret_array):
-                    print 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (packet.length, len(ret_array))
+                    sys.stderr.write( 'Error: %d bytes sent in submission (transfer to USB device) out of %d bytes we attempted to send' % (packet.length, len(ret_array)))
             else:
                 if self.debug:
-                    print 'No data items were read from callback packet.  '
+                    sys.stderr.write( 'No data items were read from callback packet.  ')
         else:
             if self.debug:
-                print 'No callback bytes to read: length of packet.data is 0'
+                sys.stderr.write( 'No callback bytes to read: length of packet.data is 0')
             
 
     def get_callback(self, packet):
+        """ 
+        Get the callback.  This doesn't really do anything since the
+        replayer can't really do a callback, so the callback is simulated ???
+        """
         if self.debug:
-            print '\nIn Replayer.send_usb_packet: this is a callback packet for urb id = ', packet.urb
+            sys.stderr.write( '\nIn Replayer.get_callback: this is a callback packet for urb id = 0x%x' % packet.urb)
         if packet.urb in self.urbs:
             if self.debug:
-                print 'Removing 0x%x from urb list' % packet.urb
+                sys.stderr.write( 'Removing 0x%x from urb list' % packet.urb)
             self.urbs.remove(packet.urb)
         else:
-            print 'Packet urb id=0x%x has a callback but not a submission' % packet.urb
+            sys.stderr.write( 'Packet urb id=0x%x has a callback but not a submission' % packet.urb)
         if self.debug:
-            print 'Current urbs = ', self.urbs
+            sys.stderr.write( 'Current urbs = %s' % self.urbs)
 
 
     def keyboard_handler(self, signum, frame):
-        print 'Signal handler called with signal ', signum
+        if self.debug:
+            sys.stderr.write( '\nIn Replayer.keyboard_handler')
+        """ Keyboard handler will also reset the current USB device """
+        sys.stderr.write( 'Signal handler called with signal %d' % signum)
         self.reset_device()
         sys.exit(0)
 
 
     def init_handlers(self):
-        signal.signal(signal.SIGINT, self.keyboard_handler)
+        """ 
+        Initialize keyboard handler. Use CNTL-C to exit replayer program 
+        """
+        if self.debug:
+            sys.stderr.write( '\nIn Replayer.init_handlers 1')
+        try:
+            signal.signal(signal.SIGINT, self.keyboard_handler)
+            if self.debug:
+                sys.stderr.write( '\nIn Replayer.init_handlers 2')
+        except usb.core.USBError as e:
+            sys.stderr.write( 'In Replayer.init_handlers: %s' % e)
+            pass
+
+        if self.debug:
+            sys.stderr.write( '\nIn Replayer.init_handlers 3')
+      
 
 
     def print_descriptor_info(self):
         """ 
-        Utility function to print out some basic device hierarcy numbers, ids, 
-        and endpoint address.
+        Print out some basic device hierarcy numbers, ids, info.
         """
-        print 'vid = 0x%x' % self.vid
-        print 'pid = 0x%x' % self.pid
-        print 'logical_cfg_idx = %d' % self.logical_cfg
-        print 'logical_iface_idx = %d' % self.logical_iface
-        print 'logical_alt_setting_idx = %d' % self.logical_alt_setting
+        sys.stderr.write( 'vid = 0x%x' % self.vid)
+        sys.stderr.write( 'pid = 0x%x' % self.pid)
+        sys.stderr.write( 'logical_cfg_idx = %d' % self.logical_cfg)
+        sys.stderr.write( 'logical_iface_idx = %d' % self.logical_iface)
+        sys.stderr.write( 'logical_alt_setting_idx = %d' % self.logical_alt_setting)
       
 
     # Got this from USB in a NutShell, chp 5.
     def print_device_descriptor_fields(self):
         """ 
-        Utility function to print out all device descriptor fields.
+        Print out all device descriptor fields.
         """
-        #print '--------------------------------'
-        #print 'In Replayer.print_device_descriptor_fields'
         dev = self.device
         # bLength = Size of device descriptor in bytes (18 bytes) (number).
-        print 'bLength = ', dev.bLength
+        sys.stderr.write( 'bLength = %d' % dev.bLength)
         # bDescriptorType = Device descriptor (0x01) in bytes (constant).
-        print 'bDescriptorType = ', dev.bDescriptorType
+        sys.stderr.write( 'bDescriptorType = 0x%x' % dev.bDescriptorType)
         # bDescriptorType = USB spec number which device complies to (bcd). 
-        print 'bcdUSB = 0x%x' % dev.bcdUSB
+        sys.stderr.write( 'bcdUSB = 0x%x' % dev.bcdUSB)
         # bDeviceClass = Class code assigned by USB org (0 or 0xff) (class).
-        print 'bDeviceClass = ', dev.bDeviceClass
+        sys.stderr.write( 'bDeviceClass = 0x%x' % dev.bDeviceClass)
         # bDeviceSubClass = Sublass code assigned by USB org (subClass).
-        print 'bDeviceSubClass = ', dev.bDeviceSubClass
+        sys.stderr.write( 'bDeviceSubClass = 0x%x' % dev.bDeviceSubClass)
         # bDeviceProtocol = Protocol code assigned by USB org (protocol).
-        print 'bDeviceProtocol = ', dev.bDeviceProtocol
+        sys.stderr.write( 'bDeviceProtocol = 0x%x' % dev.bDeviceProtocol)
         #bMaxPacketSize = Max packet size for zero endpoint (8, 16, 32, 64).
         #print 'bMaxPacketSize = ', dev.bMaxPacketSize
         # idVendor = Vendor ID assigned by USB org (ID).
-        print 'idVendor = 0x%x' % dev.idVendor
+        sys.stderr.write( 'idVendor = 0x%x' % dev.idVendor)
         # idProduct = Product ID assigned by USB org (ID).
-        print 'idProduct = 0x%x' % dev.idProduct
+        sys.stderr.write( 'idProduct = 0x%x' % dev.idProduct)
         # bcdDevice = Device release number (bcd).
-        print 'bcdDevice = ', dev.bcdDevice
+        sys.stderr.write( 'bcdDevice = 0x%x' % dev.bcdDevice)
         # iManufacturer = Index of manufacturer string descriptor (index).
         if dev.iManufacturer is not None:
-            print 'iManufacturer = ', dev.iManufacturer
+            sys.stderr.write( 'iManufacturer = 0x%x' % dev.iManufacturer)
         # iProduct = Index of product string descriptor (index).
         if dev.iProduct is not None:
-            print 'iProduct = ', dev.iProduct
+            sys.stderr.write( 'iProduct = 0x%x' % dev.iProduct)
         # iSerialNumber = Index of serial number string descriptor (index).
         if dev.iSerialNumber is not None:
-            print 'iSerialNumber = ', dev.iSerialNumber
+            sys.stderr.write( 'iSerialNumber = 0x%x' % dev.iSerialNumber)
         # iNumConfigurations = Number of possible configurations (integer).
-        print 'bNumConfigurations = ', dev.bNumConfigurations
+        sys.stderr.write( 'bNumConfigurations = 0x%x' % dev.bNumConfigurations)
 
 
     # Got this from USB in a NutShell, chp 5.
     def print_cfg_descriptor_fields(self):
         """ 
-        Utility function to print out all configuration descriptor fields.
+        Print out all configuration descriptor fields.
         """
         cfg = self.cfg
         # bLength = Size of configuration descriptor in bytes (number).
-        print 'bLength = ', cfg.bLength
+        sys.stderr.write( 'bLength = %d' % cfg.bLength)
         # bDescriptorType = Configuration descriptor (0x02) in bytes (constant).
-        print 'bDescriptorType = ', cfg.bDescriptorType
+        sys.stderr.write( 'bDescriptorType = 0x%x' % cfg.bDescriptorType)
         # bTotalLength = Total length in bytes of data returned (number). 
         # This indicates the number of bytes in the configuration hierarchy.
-        print 'wTotalLength = ', cfg.wTotalLength
+        sys.stderr.write( 'wTotalLength = %d' % cfg.wTotalLength)
         # bNumInterfaces = Total length in bytes of data returned (number). 
-        print 'bNumInterfaces = ', cfg.bNumInterfaces
+        sys.stderr.write( 'bNumInterfaces = %d' % cfg.bNumInterfaces)
         # bConfigurationValue = Value to use as arg to select this cfg (number).
-        print 'bConfigurationValue = ', cfg.bConfigurationValue
+        sys.stderr.write( 'bConfigurationValue = %d' % cfg.bConfigurationValue)
         # iConfiguration = Index of string descriptor describing this cfg (index).
         # This string is in human readable form.
-        print 'iConfiguration = ', cfg.iConfiguration
+        sys.stderr.write( 'iConfiguration = %d' % cfg.iConfiguration)
         # bmAttributes = Bus or self powered, remote wakeup or reserved (bitmap). 
         # Remote wakeup allows device to wake up the host when the host is in suspend.
-        print 'bmAttributes = ', cfg.bmAttributes
+        sys.stderr.write( 'bmAttributes = %d' % cfg.bmAttributes)
         # bMaxPower = Maximum power consumption in 2mA units (mA).
-        print 'bMaxPower = ', cfg.bMaxPower
+        sys.stderr.write( 'bMaxPower = %d' % cfg.bMaxPower)
 
 
     # Got this from USB in a NutShell, chp 5.
@@ -537,54 +585,54 @@ class Replayer(object):
     # group performing a single feature of the device.
     def print_iface_descriptor_fields(self):
         """ 
-        Utility function to print out all interface descriptor fields.
+        Print out all interface descriptor fields.
         """
         iface = self.iface
         # bLength = Size of interface descriptor in bytes (number).
-        print 'bLength = ', iface.bLength
+        sys.stderr.write( 'bLength = %d' % iface.bLength)
         # bDescriptorType = Interface descriptor (0x04) in bytes (constant).
-        print 'bDescriptorType = ', iface.bDescriptorType
+        sys.stderr.write( 'bDescriptorType = %d' % iface.bDescriptorType)
         # bInterfaceNumber = Number of interface (number).
-        print 'bInterfaceNumber = ', iface.bInterfaceNumber
+        sys.stderr.write( 'bInterfaceNumber = %d' % iface.bInterfaceNumber)
         # bAlternateSetting = Value used to select alternate setting (number).
-        print 'bAlternateSetting = ', iface.bAlternateSetting
+        sys.stderr.write( 'bAlternateSetting = %d' % iface.bAlternateSetting)
         # bNumEndpoints = Number of endpoints used for this interface (number).
         # This excludes endpoint 0.
-        print 'bNumEndpoints = ', iface.bNumEndpoints
+        sys.stderr.write( 'bNumEndpoints = %d' % iface.bNumEndpoints)
         # bInterfaceClass = Class code assigned by USB org (class).
         # Class could be HID, communicatins, mass storage, etc.
-        print 'bInterfaceClass = ', iface.bInterfaceClass
+        sys.stderr.write( 'bInterfaceClass = %d' % iface.bInterfaceClass)
         # bInterfaceSubClass = SubClass code assigned by USB org (subClass).
-        print 'bInterfaceSubClass = ', iface.bInterfaceSubClass
+        sys.stderr.write( 'bInterfaceSubClass = %d' % iface.bInterfaceSubClass)
         # bInterfaceProtocol = Protocol code assigned by USB org (protocol).
-        print 'bInterfaceProtocol = ', iface.bInterfaceProtocol
+        sys.stderr.write( 'bInterfaceProtocol = %d' % iface.bInterfaceProtocol)
         # iInterface = Index of string descriptor describing this interface (index).
-        print 'iInterface = ', iface.iInterface
+        sys.stderr.write( 'iInterface = %d' % iface.iInterface)
 
 
     # Got this from USB in a NutShell, chp 5.
     def print_ep_descriptor_fields (self, ep):
         """ 
-        Utility function to print out all endpoint descriptor fields.
+        Print out all endpoint descriptor fields.
         """
         # bLength = Size of endpoint descriptor in bytes (number).
-        print 'bLength = ', ep.bLength
+        sys.stderr.write( 'bLength = %d' % ep.bLength)
         # bDescriptorType = Endpoint descriptor (0x05) in bytes (constant).
-        print 'bDescriptorType = ', ep.bDescriptorType
+        sys.stderr.write( 'bDescriptorType = %d' % ep.bDescriptorType)
         # bEndpointAddress = Endpoint descriptor (0x05) in bytes (constant).
         # Bits 0-3=endpoint number, Bits 4-6=0, Bit 7=0(out) or 1(in).
-        print 'bEndpointAddress = 0x%x' % ep.bEndpointAddress
+        sys.stderr.write( 'bEndpointAddress = 0x%x' % ep.bEndpointAddress)
         # Endpoint logical index is derived from Bits 0-3=endpoint number of
         # the bEndpointAddress.
-        print 'endpoint logical index = ', ep.bEndpointAddress & 0xf
+        sys.stderr.write( 'endpoint logical index = 0x%x' % (ep.bEndpointAddress & 0xf))
         # bmAttributes = Bits 0-1=Transfer type, other bits refer to 
         # synchronization type, usage type (iso mode) (bitmap).
         # Transfer types: 00=Control, 01=Isochronous, 10=Bulk, 11=Interrupt.
-        print 'bmAttributes = ', ep.bmAttributes
+        sys.stderr.write( 'bmAttributes = %d' % ep.bmAttributes)
         # wMaxPacketSize = Max packet size this endpoint is capable of 
         # sending or receiving (number).
         # This is the maximum payload size for this endpoint.
-        print 'wMaxPacketSize = ', ep.wMaxPacketSize
+        sys.stderr.write( 'wMaxPacketSize = %d' % ep.wMaxPacketSize)
         # bInterval = Interval for polling endpoint data transfers.  
         # Value in frame counts (?).  Ignored for bulk and control endpoints.
         # Isochronous must equal 1.  This field for interrupt endpoints may 
@@ -592,29 +640,29 @@ class Replayer(object):
         # bInterval is used to specify the polling interval of certain transfers.
         # The units are expressed in frames.  This equates to 1ms for low/full
         # speed devices, and 125us for high speed devices.
-        print 'bInterval = ', ep.bInterval
+        sys.stderr.write( 'bInterval = %d' % ep.bInterval)
 
 
     def print_device_enumeration_tree(self):
         """ 
-        Utility function to print out the device enumeration, which includes
-        device configuration, interface and endpoint descriptors.
+        Print out the device enumeration, which includes
+        device, configuration, interface and endpoint descriptors.
         """
-        #print '--------------------------------'
-        #print 'In Replayer.print_device_enumeration_tree'
         dev = self.device
         for cfg in dev:
-            print 'configuration value = %s ' % (cfg.bConfigurationValue)
+            sys.stderr.write( 'configuration value = %s ' % (cfg.bConfigurationValue))
             for iface in cfg:
-                print '  interface number = %s ' % (iface.bInterfaceNumber)
-                print '  alternate setting = %s ' % (iface.bAlternateSetting)
+                sys.stderr.write( '  interface number = %s ' % (iface.bInterfaceNumber))
+                sys.stderr.write( '  alternate setting = %s ' % (iface.bAlternateSetting))
                 for ep in iface:
-                    print '    endpoint address = 0x%x ' % (ep.bEndpointAddress)
+                    sys.stderr.write( '    endpoint address = 0x%x ' % (ep.bEndpointAddress))
 
 
 
 def get_arguments(argv):
-    """ python usbreplay.py -h will show a help message """
+    """ Get command line arguments. 
+        python usbreplay.py -h will show a help message
+    """
 
     parser = optparse.OptionParser(usage="usage: %prog [options] [filename]")
 
@@ -675,43 +723,36 @@ def get_arguments(argv):
     
     options, remaining_args = parser.parse_args()
     if options.debug:
-        print 'Options:  %s' % options
-        print 'Remaining_args:  %s' % remaining_args
+        sys.stderr.write( 'Options:  %s' % options)
+        sys.stderr.write( 'Remaining_args:  %s' % remaining_args)
     return options
 
 
 def print_options(options):
     """ 
-    Utility function to print out command line options or their defaults.
+    Print out command line options or their defaults.
     """
 
     #if options.debug:
-    print 'options.infile = %s' % options.infile
-    print 'options.vid = 0x%x' % options.vid
-    print 'options.pid = 0x%x ' % options.pid
-    print 'options.cfg = %d' % options.logical_cfg
-    print 'options.iface = %d' % options.logical_iface
-    print 'options.altsetting = %d' % options.logical_alt_setting
-    print 'options.debug = %d' % options.debug
+    sys.stderr.write( 'options.infile = %s' % options.infile)
+    sys.stderr.write( 'options.vid = 0x%x' % options.vid)
+    sys.stderr.write( 'options.pid = 0x%x ' % options.pid)
+    sys.stderr.write( 'options.cfg = %d' % options.logical_cfg)
+    sys.stderr.write( 'options.iface = %d' % options.logical_iface)
+    sys.stderr.write( 'options.altsetting = %d' % options.logical_alt_setting)
+    sys.stderr.write( 'options.debug = %d' % options.debug)
 
 
 if __name__ == '__main__':
     # read a pcap stream from a file or from stdin, write the contents back
     # to stdout (for debug info), convert input stream to USB packets, and 
     # send USB packets to the device or stdout.
-    #print '1'
     options = get_arguments(sys.argv)
-    #print '2'
     print_options(options)
-    #print '3'
     pcap = pcapy.open_offline(options.infile)
-    #print '4'
     out = None
     if not sys.stdout.isatty():
     	out = pcap.dump_open('-')
-     #print '5'
     replayer = Replayer(options.vid, options.pid, options.logical_cfg, options.logical_iface, options.logical_alt_setting, options.infile, options.debug)
-    #print '6'
     replayer.run(pcap, out)
-    #print '7'
 
