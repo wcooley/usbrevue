@@ -247,6 +247,21 @@ class TestPacket(unittest.TestCase,TestUtil):
         packet2.urb = 0xff
         self.assertNotEqual(packet2.urb, self.packet.urb)
 
+    def test_diff_identity(self):
+        """Identity: Diff should return empty-list when comparing with itself."""
+
+        self.assertEqual(self.packet.diff(self.packet), list())
+
+    def test_diff_copy(self):
+        """All-but identity: Diff should return empty-list when comparing with copy of itself."""
+        self.assertEqual(self.packet.diff(self.packet.copy()), list())
+
+    def test_diff(self):
+        packet2 = self.packet.copy()
+        packet2.urb = 0xff
+
+        self.assertNotEqual(self.packet.diff(packet2), ())
+
 class TestPacketData(unittest.TestCase,TestUtil):
 
     def setUp(self):
