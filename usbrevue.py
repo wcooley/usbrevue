@@ -620,6 +620,11 @@ class SetupField(PackedFields):
 
         return s
 
+    def __eq__(self, other):
+        return self.datapack == other.datapack
+
+    def __ne__(self, other):
+        return self.datapack != other.datapack
 
 class WrongPacketXferType(Exception):
     """Exception that should be raised when data Packet fields are accessed for
