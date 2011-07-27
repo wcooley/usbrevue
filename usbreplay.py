@@ -185,8 +185,6 @@ class Replayer(object):
         sys.stderr.write( '\nEndpoint descriptor fields ...\n')
         for ep in self.poll_eps:
             self.print_ep_descriptor_fields(ep)
-        for ep in self.eps:
-            self.print_ep_descriptor_fields(self.eps[ep])
 
 
     # Execute lsusb to see USB devices on your system
