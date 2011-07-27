@@ -104,7 +104,7 @@ class PacketModel(QAbstractTableModel):
                                                "ZICB"[pack.xfer_type],
                                                "oi"[pack.epnum >> 7])
             elif col == DATA_COL:
-                return ' '.join(map(lambda x: "%02X" % x, pack.data))
+                return ' '.join(map(lambda x: "%02X" % x, pack.data[:64]))
             elif col == SETUP_COL and pack.is_setup_packet:
                 if pack.setup.bmRequestTypeType == 'standard':
                     return SETUP_REQUEST_TYPES[pack.setup.bRequest]
@@ -250,8 +250,9 @@ class HexEditDelegate(QItemDelegate):
         return editor
 
     def setEditorData(self, editor, index):
-        text = index.model().data(index)
-        editor.setText(text.toString())
+        pack = index.model().data(index, Qt.UserRole).toPyObject()
+        text = ' '.join(map(lambda x: "%02X" % x, pack.data))
+        editor.setText(text)
 
     def setModelData(self, editor, model, index):
         if editor.hasAcceptableInput():
