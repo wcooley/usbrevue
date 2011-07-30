@@ -14,6 +14,8 @@ YMMV, depending on whether the minimum requirements are met.
     * python-pcapy
     * python-qt4
     * python-gflags
+    * Qwt5
+    * usbmon
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:
