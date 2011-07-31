@@ -35,11 +35,11 @@ stream.
 
 To view a pcap file:
 
-        $ ./usbview.py < file.pcap
+        $ usbview.py < file.pcap
 
 To view a live stream, and dump to a file:
 
-        $ sudo tcpdump -i usbmon0u -w - -U | ./usbview.py -p > outfile.pcap
+        $ sudo usbcap | usbview.py -p > outfile.pcap
 
 The -p option enables 'passthru' -- all incoming packets will be dumped to 
 output as they arrive.
@@ -164,11 +164,11 @@ source and output destination, use a pipeline. For example, to read
 from a pcap file called "foo.pcap" and write to a file called
 "bar.pcap", do:
 
-        $ cat foo.pcap | ./modifier.py > bar.pcap
+        $ cat foo.pcap | usbmodify.py > bar.pcap
 
 To read a pcap stream directly from USB bus 7, do:
    
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...]
+        $ sudo usbcap 7 | usbmodify.py[ | ...]
 
 Note that if no output destination is given, all packets will be
 silently lost.
@@ -255,7 +255,7 @@ well, but this behavior is not supported. To use simple statements,
 use the --exp flag followed by one or more quoted and comma-separated
 statements:
 
-        $ ./usbmodify.py --exp "data[0] = data[1] + data[2]","data[3]\
+        $ usbmodify.py --exp "data[0] = data[1] + data[2]","data[3]\
         = data[4] ^ data[5]"
 
 Data payload byte offsets are referenced as "data[0], data[1],
@@ -285,7 +285,7 @@ example, the following routine is saved as "mod_routine":
 
 The routine can be applied to all incoming packets by doing:
 
-        $ ./usbmodify.py --routine mod_routine
+        $ usbmodify.py --routine mod_routine
 
 Note that, unlike simple statements passed at the command line, there
 is no checking done on the existence of attributes or byte offsets
@@ -359,7 +359,7 @@ As a simple example, the following module output all packets with epnum 1 or
 
 To run this module, do:
 
-        $ ./usbmodify.py --mod mymod
+        $ usbmodify.py --mod mymod
 
 
 
@@ -375,11 +375,11 @@ packets.
 
 To graph from a pcap file:
 
-        $ ./usbgraph.py < file.pcap
+        $ usbgraph.py < file.pcap
 
 To graph from a live stream:
 
-        $ sudo tcpdump -i usbmon0u -w - -U | ./usbgraph.py
+        $ sudo usbcap | usbgraph.py
 
 Note that the Grapher has no dumping or output functionality.
 
@@ -475,9 +475,9 @@ and writes to a usb device.
 
 Command line help may be found by executing:
  
-        $ sudo ./usbreplay.py -h
+        $ sudo usbreplay.py -h
                   OR
-        $ sudo ./usbreplay.py --help
+        $ sudo usbreplay.py --help
 
 To connect an input source and output destination, use a pipeline. 
 For example, to read from a pcap file called "usbmon.pcap" and replay to 
@@ -491,7 +491,7 @@ Another method using command line arguments, to send a dev.pcap file
 for a keyboard device on interface 3 is as follows.  This particular
 device has vendor id 0x413c and product id 0x2105:
 
-        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
+        $ sudo usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
 
 
 2. THE USB DESCRIPTORS
@@ -595,11 +595,11 @@ be able to write to standard output (in its current form.) To connect an input
 source and output destination, use a pipeline. For example, to read
 from a pcap file called "foo.pcap" do:
 
-        $ cat foo.pcap | ./modifier.py
+        $ cat foo.pcap | modifier.py
 
 To read a pcap stream directly from USB bus 7, do:
    
-        $ sudo tcpdump -i usbmon7u -w - -U | ./usbmodify.py[ | ...]
+        $ sudo usbcap 7 | usbmodify.py[ | ...]
 
 The statisfier will post the information desired to standard output.
 
@@ -608,11 +608,11 @@ There are two primary ways you'll likely use this tool. One is with a
 comparison and thus find how often fields meet certain criteria. To do this
 you'd use an expression akin to:
 
-        $ cat foo.pcap | ./modifier.py --exp "data[0] >= data[1]+1"
+        $ cat foo.pcap | modifier.py --exp "data[0] >= data[1]+1"
 
 Another is simply to check on a set of data. If this is the case:
 
-        $ cat foo.pcap | ./modifier.py --exp "data[0]"
+        $ cat foo.pcap | modifier.py --exp "data[0]"
 
 Currently only one expression can be successfully used. This is to be fixed. 
 If more than one expression is entered then the number of packets will be
