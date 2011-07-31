@@ -435,7 +435,7 @@ class USBView(QApplication):
     def __init__(self, argv, options, args):
         QApplication.__init__(self, argv)
         self.w = QWidget()
-        self.w.resize(800, 600)
+        self.w.resize(1000, 800)
 
         self.packetmodel = PacketModel()
         self.proxy = PacketFilterProxyModel()
@@ -446,6 +446,8 @@ class USBView(QApplication):
         self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.packetview.setUniformRowHeights(True)
         self.packetview.setAllColumnsShowFocus(True)
+        self.packetview.setColumnWidth(ADDRESS_COL, 120)
+        self.packetview.setColumnWidth(SETUP_COL, 160)
         self.packetview.dump_packet.connect(self.dump_packet)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
         self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
