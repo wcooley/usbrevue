@@ -40,5 +40,16 @@ setup(
             'Programming Language :: Python :: 2.7',
             'Topic :: System :: Hardware',
             'Topic :: System :: Hardware :: Hardware Drivers',
-          ]
+          ],
+        py_modules  = [
+            'usbrevue',
+          ],
+        scripts = [
+            'usbcap',
+            'usbgraph.py',
+            'usbmodify.py',
+            'usbreplay.py',
+            'usbstatisfier.py',
+            'usbview.py',
+          ],
         )
