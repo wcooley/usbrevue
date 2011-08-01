@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Copyright (C) 2011 Austin Leirvik <aua at pdx.edu>
+# Copyright (C) 2011 Wil Cooley <wcooley at pdx.edu>
+# Copyright (C) 2011 Joanne McBride <jirab21@yahoo.com>
+# Copyright (C) 2011 Danny Aley <danny.aley@gmail.com>
+# Copyright (C) 2011 Erich Ulmer <blurrymadness@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+ 
+# check for tcpdump
+[[ -x `which tcpdump` ]] || { echo "Couldn't find tcpdump." >&2; exit 1; }
+
+# check for debugfs
+[[ `stat -f /sys/kernel/debug` = *debugfs* ]] || { echo -e "debugfs not mounted -- try\nmount -t debugfs none_debugs /sys/kernel/debug" >&2; exit 1; }
+
+# check for usbmon
+[[ -f '/sys/kernel/debug/usb/usbmon/0u' ]] || { echo -e "usbmon not loaded -- try\nmodprobe usbmon" >&2; exit 1; }
+
+# check for valid bus (default is 0)
+bus=${1:-0}
+[[ $bus != *[!0-9]* ]] || { echo -e "Invalid bus number $bus.\nUsage: $0 [busnum]" >&2; exit 1; }
+
+tcpdump -i usbmon${bus}u -U -w - || { echo "tcpdump failed. Maybe try with sudo?" >&2; exit 1; }
+

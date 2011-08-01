@@ -99,7 +99,7 @@ class PacketModel(QAbstractTableModel):
             elif col == TIMESTAMP_COL:
                 return "%f" % (pack.ts_sec + pack.ts_usec/1e6 - self.first_ts)
             elif col == ADDRESS_COL:
-                return "%s %d:%d:%x (%s%s)" % (pack.event_type, pack.busnum,
+                return "%s %d:%02d:%02x (%s%s)" % (pack.event_type, pack.busnum,
                                                pack.devnum, pack.epnum,
                                                "ZICB"[pack.xfer_type],
                                                "oi"[pack.epnum >> 7])
@@ -374,9 +374,9 @@ class FilterWidget(QWidget):
     def __init__(self, parent = None):
         QWidget.__init__(self, parent)
         self.view_filter_edit = QLineEdit()
-        self.view_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+        self.view_filter_clear = QPushButton("Clear")
         self.cap_filter_edit = QLineEdit()
-        self.cap_filter_clear = QPushButton(QIcon.fromTheme("editclear"), "")
+        self.cap_filter_clear = QPushButton("Clear")
 
         filter_tip = """Available fields include:
 event_type:\t'C', 'S', or 'E' for Callback, Submission, or Error
@@ -435,7 +435,7 @@ class USBView(QApplication):
     def __init__(self, argv, options, args):
         QApplication.__init__(self, argv)
         self.w = QWidget()
-        self.w.resize(800, 600)
+        self.w.resize(1000, 800)
 
         self.packetmodel = PacketModel()
         self.proxy = PacketFilterProxyModel()
@@ -446,6 +446,8 @@ class USBView(QApplication):
         self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.packetview.setUniformRowHeights(True)
         self.packetview.setAllColumnsShowFocus(True)
+        self.packetview.setColumnWidth(ADDRESS_COL, 120)
+        self.packetview.setColumnWidth(SETUP_COL, 160)
         self.packetview.dump_packet.connect(self.dump_packet)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
         self.packetview.pause_toggle.toggled.connect(self.pause_toggled)
