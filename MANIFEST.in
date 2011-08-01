@@ -1,0 +1,4 @@
+include COPYING
+prune COPYING
+include test/*.pcap
+prune test/*.pcap
