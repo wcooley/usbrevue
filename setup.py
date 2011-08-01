@@ -22,4 +22,23 @@
 
 from distutils.core import setup
 
-setup(name='usbrevue', version='0.1')
+setup(
+        name        = 'usbrevue',
+        version     = '0.1.0',
+        description = 'USB Reverse-Engineering Toolkit',
+        author      = 'TeamC',
+        author_email= 'teamc@lists.pdxlinux.org',
+        url         = 'https://bitbucket.org/TeamC2011/usbrevue/',
+        classifiers = [
+            'Development Status :: 3 - Alpha',
+            'Environment :: Console',
+            'Environment :: X11 Applications :: Qt',
+            'Intended Audience :: Developers',
+            'License :: OSI Approved :: GNU General Public License (GPL)',
+            'Natural Language :: English',
+            'Operating System :: POSIX :: Linux',
+            'Programming Language :: Python :: 2.7',
+            'Topic :: System :: Hardware',
+            'Topic :: System :: Hardware :: Hardware Drivers',
+          ]
+        )
