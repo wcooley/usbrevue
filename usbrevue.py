@@ -305,6 +305,10 @@ class Packet(PackedFields):
         return self.cache('data',
                 lambda a: list(self.unpacket(a, self.datalen)))
 
+    def data_hexdump(self, maxlen=None):
+        """Space-delimited dump of data in hex"""
+        return ' '.join(map(lambda x: '%02X' % x, self.data[:maxlen]))
+
     def repack(self):
         """Returns the packet data as a string, taking care to repack any
         "loose" attributes."""
@@ -393,6 +397,70 @@ class Packet(PackedFields):
     def is_setup_packet(self):
         """Boolean test to determine if packet is a setup packet"""
         return self.flag_setup == '\x00'
+
+    @property
+    def is_event_type_submission(self):
+        """Boolean test if event-type is submission"""
+        return self.event_type == 'S'
+
+    @property
+    def is_event_type_callback(self):
+        """Boolean test if event-type is callback"""
+        return self.event_type == 'C'
+
+    @property
+    def is_event_type_error(self):
+        """Boolean test if event-type is error"""
+        return self.event_type == 'E'
+
+    @property
+    def ep_dir_ch(self):
+        """Single-char representation of endpoint direction"""
+        return ['o', 'i'][self.epnum >> 7]
+
+    @property
+    def endpoint_dir(self):
+        """Verbose representation of endpoint direction"""
+        return ['outgoing', 'incoming'][self.epnum >> 7]
+
+    @property
+    def xfer_type_ch(self):
+        """Single-char representation of xfer_type"""
+        return ['Z', 'I', 'C', 'B'][self.xfer_type]
+
+    @property
+    def transfer_type(self):
+        """Verbose representation of transfer type"""
+        return ['Isochronous', 'Interrupt', 'Control', 'Bulk'][self.xfer_type]
+
+    @property
+    def addr(self):
+        """Packet address"""
+        # Does it make sense to have two decimals followed by a hex?
+        return "%d:%d:%x" % (self.busnum, self.devnum, self.epnum)
+
+    @property
+    def address_verbose(self):
+        """Verbose packet address"""
+        return "bus %d, device %d, endpoint 0x%x" % (self.busnum,
+                                                     self.devnum, self.epnum)
+    @property
+    def event_type_preposition(self):
+        """Verbose event-type"""
+        return  {'S': 'Submission to',
+                 'C': 'Callback from',
+                 'E': 'Error on'}[self.event_type]
+
+    @property
+    def typedir(self):
+        """Abbreviated packet type & direction, a la usbmon: 'Ci', 'Co', etc."""
+        return self.xfer_type_ch + self.ep_dir_ch
+
+    @property
+    def packet_summ(self):
+        """Summary of packet event type, address, etc."""
+        return "%s %s (%s)" % (self.event_type, self.addr, self.typedir)
+
 
     def copy(self):
         """Make a complete copy of the Packet."""
