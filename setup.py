@@ -43,8 +43,10 @@ setup(
           ],
         py_modules  = [
             'usbrevue',
+            'util',
           ],
         scripts = [
+            'codegen.py',
             'usbcap',
             'usbgraph.py',
             'usbmodify.py',
