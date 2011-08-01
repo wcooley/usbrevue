@@ -1,0 +1,213 @@
+========
+Modifier
+========
+
+The purpose of the Modifier is to alter packets programmatically. It
+allows the user to apply a function to every packet in the input
+stream and writes the modifier packets as output.
+
+1. GETTING STARTED
+
+Like other tools in the USB REVue toolkit, the Modifier reads and
+writes via a pcap-formatted stream or file. The Modifier reads from
+standard input and writes to standard output. To connect an input
+source and output destination, use a pipeline. For example, to read
+from a pcap file called "foo.pcap" and write to a file called
+"bar.pcap", do:
+
+        $ cat foo.pcap | usbmodify.py > bar.pcap
+
+To read a pcap stream directly from USB bus 7, do:
+   
+        $ sudo usbcap 7 | usbmodify.py[ | ...]
+
+Note that if no output destination is given, all packets will be
+silently lost.
+
+
+2. THE USB PACKET
+
+USB REVue uses a USB packet class based on the usbmon_packet C struct
+described in the usbmon documentation. Each packet contains the
+following typed attributes (usbmon_packet name given in parentheses
+where it differs from USB REVue):
+
+      u64	    urb			(id)
+      unsigned char event_type		(type)
+      unsigned char xfer_type
+      unsigned char epnum
+      unsigned char devnum
+      u16      	    busnum
+      char	    flag_setup
+      char	    flag_data
+      s64	    ts_sec
+      s32	    ts_usec
+      int	    status
+      unsigned int  length
+      unsigned int  len_cap
+      unsigned char setup[SETUP_LEN]	-- only for Control S-type
+      unsigned int  error_count		-- only for ISO
+      unsigned int  numdesc		-- only for ISO
+      int      	    interval
+      int	    start_frame
+      unsigned int  xfer_flags
+      unsigned int  ndesc
+      unsigned char data[...]
+
+The setup array, if present, contains the following packed fields,
+accessed by referencing setup.[name]:
+
+		    bmRequestType
+		    bRequest
+		    wValue
+		    wIndex
+		    wLength
+
+Alternatively, you can access the transfer direction, type, and
+recipient subfields of the bmRequestType bitmap with the following:
+
+	  	    bmRequestTypeDirection
+		        (possible values: 'host_to_device', 'device_to_host')
+		    bmRequestTypeType
+			(possible values: 'standard', 'class_',
+		        'vendor', 'reserved')
+		    bmRequestTypeRecipient
+			(possible values: 'device', 'interface',
+		        'endpoint', 'other')
+
+The data array may be of variable size, depending on the specific
+packet. For more information about these attributes, see the usbmon
+documentation (probably supplied with your Linux kernel documentation,
+or available at
+http://www.mjmwired.net/kernel/Documentation/usb/usbmon.txt).
+
+Since the resulting packet must still be valid for encoding, any
+modified attribute values must still be of the respective type
+indicated above. For example, changing 'status' to a floating-point
+number will result in an error.
+      
+
+3. ALTERING PACKETS
+
+The Modifier requires that the user specify at the command line the
+way(s) in which incoming USB packets will be modified. There are three
+methods for altering USB packets, ranging from most restrictive to
+most flexible: simple statements, an external routine, and an external
+Python module.
+
+With any of the above methods, to display the details of each modified
+packet on the fly, use the --verbose flag.
+
+3a. With Simple Statements (--exp)
+
+Simple statements are designed to easily modify the data payload of a
+stream of USB packets. Other packet attributes may be modified as
+well, but this behavior is not supported. To use simple statements,
+use the --exp flag followed by one or more quoted and comma-separated
+statements:
+
+        $ usbmodify.py --exp "data[0] = data[1] + data[2]","data[3]\
+        = data[4] ^ data[5]"
+
+Data payload byte offsets are referenced as "data[0], data[1],
+...". Arithmetic operators (+, -, *, /), logical operators (and, or,
+not), and bitwise operators (^, &, |, !) are supported. For logical
+xor, use "bool(a) ^ bool(b)".
+
+The statement(s) will only be applied to a USB packet if the packet's
+data payload contains every byte offset referenced in ALL
+statements. For example, given the two statements "data[0] = !
+data[1]" and "data[2] = data[3] | data[4]", a packet must have at
+least 5 data bytes for either of these statements to be applied to it. 
+
+3b. With an External Routine (--routine)
+
+The user can use an external routine to specify more complex
+modifications. Any packet attribute may be referenced and/or
+altered. The external routine must be written as a sequence of one or
+more Python statements. To use an external routine, use the --routine
+flag followed by the name of the file containing the routine. For
+example, the following routine is saved as "mod_routine":
+
+	 if len(data) >= 8:
+	     data[7] = data[0] or data[1]
+	 elif epnum == 0 and not status:
+	     status = 1
+
+The routine can be applied to all incoming packets by doing:
+
+        $ usbmodify.py --routine mod_routine
+
+Note that, unlike simple statements passed at the command line, there
+is no checking done on the existence of attributes or byte offsets
+before the routine is applied. Be sure to examine each packet
+(e.g. using the xfer_type attribute or Python's len()) where
+necessary.
+
+For more information about Python statements, see the Python
+documentation (http://docs.python.org).
+
+3c. With a Python Module (--mod)
+
+A user-supplied Python module is the most flexible way to modify a USB
+stream. Instead of supplying a routine to be applied to each packet
+automatically, the user-supplied module can add or remove packets from
+the stream and save information about previous packets.
+
+The module must be saved with a .py extension in the same directory as
+usbmodify.py. To use a user-supplied module, use the --mod flag
+followed by the name of the module (without the .py extension).
+
+The module must implement a function with the following interface:
+
+        modify(packet_gen, commit_func)
+
+The function must take two arguments, both of them functions. The
+first argument ("packet_gen") is a Python generator that supplies
+individual USB packets from the incoming pcap stream/file. The second
+function ("commit_func") is used to pass a packet to the output
+stream.
+
+To access the USB packet stream, use the generator passed as the first
+argument:
+
+        for packet in packet_gen():
+	    ...
+
+To pass a single packet to the output stream, use the function passed
+as the second argument:
+
+        commit_func(packet)
+
+Note that any packet destined for output, whether modified or not,
+must be passed to the commit function. To remove or ignore a packet, simply
+don't pass it to the commit function.
+
+Additionally, at any time you can create a new packet by importing
+Packet from usbrevue:
+
+        new_packet = Packet()
+
+You can then assign values to the new packet's attributes manually.
+
+As a simple example, the following module output all packets with epnum 1 or
+2, modifies the data of packets with epnum 2, and ignores all other packets:
+
+      """mymod.py"""
+
+      def modifier(generator, commit):
+
+          for packet in generator():
+
+	      if packet.epnum == 1:
+	          commit(packet)
+	      elif packet.epnum == 2:
+	          if len(packet.data) >= 4:
+		      packet.data[3] = packet.data[0] | packet.data[1]
+		  commit(packet)
+	      else:
+	          continue
+
+To run this module, do:
+
+        $ usbmodify.py --mod mymod

@@ -1,0 +1,89 @@
+=======
+Grapher
+=======
+
+The Grapher allows the user to plot values on a two-dimensional
+Cartesian plane based on the data payload of an incoming stream of USB
+packets.
+
+1. USAGE
+
+To graph from a pcap file:
+
+        $ usbgraph.py < file.pcap
+
+To graph from a live stream:
+
+        $ sudo usbcap | usbgraph.py
+
+Note that the Grapher has no dumping or output functionality.
+
+
+2. INTERFACE
+
+The Grapher provides a graphical user interface for setting up and
+displaying data and their plots. The main window is composed of the
+following components (from the top left and moving clockwise):
+
+    * A table of all incoming byte offset values
+    * 'Byte Values'  	      	- A plot of selected byte offset values over time
+    * 'Plot Width'   	      	- Control how many packets are displayed in the
+      	    	     	      	  plot's x-axis
+    * 'Clamp Y Axis' 	        - Manually adjust the maximum and minimum values
+      	       	       	      	  of the plot's y-axis
+    * 'Custom Byte Expressions' - Define custom value(s) based on one
+      	      	   		  or more byte offsets to be plotted
+
+
+3. PLOTTING BYTES
+
+Each incoming USB packet data payload is listed as a single row in the
+table. The data bytes are displayed by offset. To graph the value of a
+byte offset over time, click the checkbox in the first row of that
+offset column in the table.
+
+'Autoscroll', available by right-clicking in the table, ensures that
+the most recent packet is visible in the display. You may need to
+disable autoscroll in order to click a byte offset checkbox.
+
+The user can display up to 31 byte curves at one time, including
+simple byte offsets and custom byte expressions (below).
+
+3.1 Custom Byte Expressions
+
+The 'Custom Byte Expressions' feature allows the user to manipulate
+one or more byte offsets in order to define custom value(s) to
+plot. Use the following notation to refer to existing byte offsets:
+    * byte offset 0: [0]
+    * byte offset 1: [1]
+      ...
+
+Any valid Python expression, using bitwise, arithetic, or logical
+operators, can be used to modify byte offset values. For example, to
+left-shift byte offset 0 by 8 bits and add byte offset 1, enter:
+
+    ([0] << 8) + [1]
+
+Or equivalently:
+
+    ([0] * 256) + [1]
+
+Separate multiple expressions with commas. To plot the square of byte
+offset 0 and the sum of byte offsets 2 and 3:
+
+    [0] ** 2, [2] + [3]
+
+
+4. PLOT OPTIONS
+
+The user can adjust the length of the x-axis and the maximum and
+minimum values of the y-axis.
+
+The most recent packets are always displayed in the plot. To adjust
+how many previous packets are displayed, use the 'Plot Width' slider.
+
+The y-axis will automatically adjust to encompass the minimum and
+maximum values of all active bytes in the given range of packets. To
+manually adjust the maximum and minimum values of the y-axis, use the
+'Clamp Y Axis' feature. Note that if min/max values are given
+manually, both a minimum and maximum must be specified.
