@@ -128,7 +128,7 @@ class Replayer(object):
         self.logical_iface = logical_iface
 
         if self.device.is_kernel_driver_active(self.logical_iface):
-            if self.debug: sys.stderr.write( 'Detaching kernal driver\n')
+            if self.debug: sys.stderr.write( 'Detaching kernel driver\n')
             self.device.detach_kernel_driver(self.logical_iface)
 
         self.logical_alt_setting = logical_alt_setting
@@ -165,7 +165,7 @@ class Replayer(object):
         self.device.reset()
         res = self.device.is_kernel_driver_active(self.logical_iface)
         if not res:
-            sys.stderr.write( 'Re-attaching kernal driver\n')
+            sys.stderr.write( 'Re-attaching kernel driver\n')
             try:
                 self.device.attach_kernel_driver(self.logical_iface)
             except usb.core.USBError:
