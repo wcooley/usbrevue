@@ -4,3 +4,18 @@ Introduction
 
 USBREVue is a suite of tools for reverse-engineering USB devices.
 
+USBREVue provides the following tools:
+
+    * Grapher: Visually track USB packet data values
+    * Modifier: Programmatically modify a stream of USB packets
+    * Replayer: Send a specified stream of USB packets to a USB device
+    * Statisfier: Perform basic statistical analysis on a stream of
+      		  USB packets
+   
+    * Viewer: Edit and view a stream of USB packets
+
+There are plans to add USB decoding to the Viewer in a future release
+of USBREVue. Until then, for analysis of USB packets according to the
+USB protocol, we highly recommend recent versions of Wireshark, a
+network protocol analyzer for Unix and Windows. You can learn more
+about Wireshark at www.wireshark.org.
