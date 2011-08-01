@@ -6,3 +6,6 @@
 \.chg\..*$
 \.rej$
 \.conflict\~$
+MANIFEST
+^build/.*
+^dist/.*
