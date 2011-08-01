@@ -1,4 +1,3 @@
 include COPYING
 prune COPYING
-include test/*.pcap
-prune test/*.pcap
+recursive-include test *.pcap *.py
