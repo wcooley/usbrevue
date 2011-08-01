@@ -1,0 +1,78 @@
+===================
+System Requirements
+===================
+
+The USB REVue toolset was developed and tested under Ubuntu 10.04 and 11.04.
+Some aspects work in 10.04 and some are known to not work. For other distros,
+YMMV, depending on whether the minimum requirements are met.
+
+    * tcpdump (corresponding with libpcap)
+        - Needed only for capture
+    * libpcap 1.1.0 (1.0.0 is known to not work)
+        - 1.0.0 uses the read(2) interface to usbmon, which does not result in
+          a complete capture; 1.1.0 uses the mmap(2) interface.
+        - Needed by most tools
+        - Ubuntu 11.04: libpcap0.8 (yes, this really is version 1.1.1)
+        - Fedora 14: libpcap (1.1.1)
+    * usbmon (Linux kernel)
+        - Needed only for packet capture
+        - Ubuntu 10.04 and later (possibly earlier): Included; needs setup
+        - Fedora 14 and later (possibly earlier): Included; needs setup
+        - See 'Setup usbmon' below
+    * Python Modules:
+        * python-pcapy
+            - Needed by most tools
+            - Ubuntu 10.04 and later: python-pcapy
+            - Fedora 14: pcapy
+        * python-qt4
+            - Needed by usbgraph.py, usbstatisfier.py, usbview.py
+            - Ubuntu 10.04 and later: python-qt4
+            - Fedora 14: PyQt4
+        * python-gflags
+            - Needed by usbmodify.py, usbstatisfier.py
+            - Ubuntu 11.04: python-gflags
+            - Fedora 14: python-gflags
+        * Qwt5
+            - Needed only by usbgraph.py
+            - Ubuntu 10.04 and later: python-qwt5-qt4
+            - Fedora 14: PyQwt
+        * pyusb 1.0.0
+            - Needed only by usbreplay.py
+            - Source: http://sourceforge.net/projects/pyusb/
+            - Ubuntu 11.04: Not currently packaged
+            - Fedora 14: Not currently packaged
+
+In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
+python tree.  For example, on some linux systems, a good location would be:
+/usr/lib/python2.7.  Pyusb, for example, allows imports of usb.core and 
+usb.util. 
+
+------------
+Setup usbmon
+------------
+
+'usbmon' is a Linux-kernel USB tracing facility which is suppored by recent
+versions of libpcap as a packet-source.  Many modern Linux distributions, such
+as Fedora and Ubuntu, ship with usbmon enabled. Setting it up for use, however,
+varies: 'debugfs' must be mounted; if 'usbmon' is built as a module, the module
+must be loaded.
+
+    * Ubuntu:
+        * Module: Must be loaded
+        * Debugfs: Mounted by default.
+    * Fedora:
+        * Module: Compiled in; no module to be loaded.
+        * Debugfs: Not mounted by default.
+
+    * Loading module:
+        sudo modprobe usbmon
+    * Mounting debugfs:
+        sudo mount -t debugfs none /sys/kernel/debug
+
+======================
+Installing From Source
+======================
+
+Typical Python `distutils` install:
+
+    sudo python setup.py install
