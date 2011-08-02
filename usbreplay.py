@@ -128,7 +128,7 @@ class Replayer(object):
         self.logical_iface = logical_iface
 
         if self.device.is_kernel_driver_active(self.logical_iface):
-            if self.debug: sys.stderr.write( 'Detaching kernel driver\n')
+            if self.debug: sys.stderr.write( 'Detaching kernal driver\n')
             self.device.detach_kernel_driver(self.logical_iface)
 
         self.logical_alt_setting = logical_alt_setting
@@ -160,12 +160,11 @@ class Replayer(object):
         """ 
         Reset device and endpoint address.
         """
-        if self.debug:
-            sys.stderr.write( 'In Replayer.reset_device: resetting device\n\n')
+        if self.debug: sys.stderr.write( 'In Replayer.reset_device\n\n')
         self.device.reset()
         res = self.device.is_kernel_driver_active(self.logical_iface)
         if not res:
-            sys.stderr.write( 'Re-attaching kernel driver\n')
+            sys.stderr.write( '\nRe-attaching kernal driver\n')
             try:
                 self.device.attach_kernel_driver(self.logical_iface)
             except usb.core.USBError:
@@ -204,8 +203,7 @@ class Replayer(object):
         """ 
         Get the usb.core.Device object based on vendorId and productId.  
         """
-        if self.debug:
-            sys.stderr.write( 'In Replayer.get_usb_device\n')
+        if self.debug: sys.stderr.write( 'In Replayer.get_usb_device\n')
         device = usb.core.find(idVendor=vid, idProduct=pid)
         if device is None:
             raise ValueError('USB Device with vendorId', vid, ', and productId', pid, 'not found')
@@ -225,8 +223,7 @@ class Replayer(object):
         Example to set the second configuration:  
           config = dev[1]
         """
-        if self.debug:
-            sys.stderr.write( 'In Replayer.set_configuration\n')
+        if self.debug: sys.stderr.write( 'In Replayer.set_configuration\n')
         self.cfg = self.device[logical_cfg]
 
 
@@ -251,14 +248,13 @@ class Replayer(object):
         setting:  
           iface = cfg[(0,0)]
         """
-        if self.debug:
-            sys.stderr.write( 'In Replayer.set_interface\n')
+        if self.debug: sys.stderr.write( 'In Replayer.set_interface\n')
         self.iface = self.cfg[(logical_iface, logical_alt_setting)]
         try:
             self.device.set_interface_altsetting(self.iface)
         except usb.core.USBError as e:
             sys.stderr.write( 'In Replayer.set_interface: %s \n' % e)
-            sys.stderr.write("Error trying to set interface alternate setting\n")
+            sys.stderr.write("Error trying to set alternate interface setting to %d\n" % self.logical_iface)
             pass
 
 
@@ -276,8 +272,7 @@ class Replayer(object):
             thread = PollThread(ep)
             thread.start()
 
-        if self.debug:
-            sys.stderr.write( 'Entering Replayer run loop\n')
+        if self.debug: sys.stderr.write( 'Entering Replayer run loop\n')
         while True:
             try:
                 if self.debug:
@@ -352,10 +347,10 @@ class Replayer(object):
         if self.debug:
             sys.stderr.write( 'Current urbs = %s\n' % self.urbs)
 
-        # IN means read bytes from device to host.
+        # IN (0x80) means read bytes from device to host.
         if (packet.epnum == 0x80):
             self.ctrl_transfer_from_device(packet)
-        # OUT means write bytes from host to device.
+        # OUT (0x00) means write bytes from host to device.
         elif (packet.epnum == 0x00):
             self.ctrl_transfer_to_device(packet)
 
@@ -472,8 +467,7 @@ class Replayer(object):
 
 
     def keyboard_handler(self, signum, frame):
-        if self.debug:
-            sys.stderr.write( 'In Replayer.keyboard_handler\n')
+        if self.debug: sys.stderr.write( 'In Replayer.keyboard_handler\n')
         """ Keyboard handler will also reset the current USB device """
         sys.stderr.write( 'Signal handler called with signal %d\n' % signum)
         self.reset_device()
@@ -484,19 +478,12 @@ class Replayer(object):
         """ 
         Initialize keyboard handler. Use CNTL-C to exit replayer program 
         """
-        if self.debug:
-            sys.stderr.write( 'In Replayer.init_handlers 1\n')
+        if self.debug: sys.stderr.write( 'In Replayer.init_handlers\n')
         try:
             signal.signal(signal.SIGINT, self.keyboard_handler)
-            if self.debug:
-                sys.stderr.write( 'In Replayer.init_handlers 2\n')
         except usb.core.USBError as e:
             sys.stderr.write( 'In Replayer.init_handlers: %s\n' % e)
             pass
-
-        if self.debug:
-            sys.stderr.write( 'In Replayer.init_handlers 3\n')
-      
 
 
     def print_descriptor_info(self):
@@ -660,13 +647,14 @@ def get_arguments(argv):
         python usbreplay.py -h will show a help message
     """
 
-    parser = optparse.OptionParser(usage="usage: %prog [options] [filename]")
+    parser = optparse.OptionParser(usage="usage: sudo %prog [options]")
 
     # Get the input file stream (pcap stream or filename
     parser.add_option("-f", "--file", 
                       dest="infile", 
                       default="-",
-                      help="Input pcap stream (filename or '-' for stdin)"
+                      help="Input pcap stream (filename or '-' for stdin). \
+                      Defaults to '-'."
                      )
 
     # Get the vendor id
@@ -674,7 +662,8 @@ def get_arguments(argv):
                       dest='vid', 
                       default=VENDOR_ID, 
                       type="int", 
-                      help="The vendor id for the USB device"
+                      help="The vendor id for the USB device. \
+                      Defaults to 0x%x." % (VENDOR_ID)
                      )
 
     # Get the product id
@@ -682,7 +671,8 @@ def get_arguments(argv):
                       dest="pid", 
                       default=PRODUCT_ID, 
                       type="int", 
-                      help="The product id for the USB device"
+                      help="The product id for the USB device. \
+                      Defaults to 0x%x." % (PRODUCT_ID)
                      )
 
     # Get the configuration index (defaults to 0)
@@ -690,7 +680,8 @@ def get_arguments(argv):
                       dest="logical_cfg", 
                       default=LOGICAL_CFG, 
                       type="int", 
-                      help="The logical configuration index of the device (starting at 0) in the device hierarchy"
+                      help="The logical configuration index of the device (starting at 0) in the device hierarchy. \
+                      Defaults to %d." % (LOGICAL_CFG)
                      )
 
     # Get the interface index (defaults to 3)
@@ -698,7 +689,8 @@ def get_arguments(argv):
                       dest="logical_iface", 
                       default=LOGICAL_IFACE, 
                       type="int", 
-                      help="The logical interface index in the configuration (starting at 0) in the device hierarchy"
+                      help="The logical interface index in the configuration (starting at 0) in the device hierarchy. \
+                      Defaults to %d." % (LOGICAL_IFACE)
                      )
 
     # Get the alternate setting index (defaults to 0)
@@ -706,15 +698,20 @@ def get_arguments(argv):
                       dest="logical_alt_setting", 
                       default=LOGICAL_ALT_SETTING, 
                       type="int", 
-                      help="The logical alternate setting index in the interface (starting at 0) in the device hierarchy"
+                      help="The logical alternate setting index in the interface (starting at 0) in the device hierarchy. \
+                      Defaults to %d." % (LOGICAL_ALT_SETTING)
                      )
-
+    if DEBUG==0: 
+        my_debug = "False"
+    else: 
+        my_debug = "True"
     # Set the debug mode to quiet or verbose
     parser.add_option("-d", "--debug", 
                       dest="debug", 
-                      default=False,
+                      default=DEBUG,
                       action="store_true", 
-                      help="Print debug messages to stdout"
+                      help="Print debug messages to stdout. \
+                      Defaults to %s." % (my_debug)
                      )
     
     options, remaining_args = parser.parse_args()
@@ -744,8 +741,7 @@ if __name__ == '__main__':
     # to stdout (for debug info), convert input stream to USB packets, and 
     # send USB packets to the device or stdout.
     options = get_arguments(sys.argv)
-    if options.debug:
-        print_options(options)
+    if options.debug: print_options(options)
     pcap = pcapy.open_offline(options.infile)
     replayer = Replayer(options.vid, options.pid, options.logical_cfg, options.logical_iface, options.logical_alt_setting, options.infile, options.debug)
     replayer.run(pcap)
