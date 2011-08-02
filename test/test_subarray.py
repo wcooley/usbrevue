@@ -38,9 +38,22 @@ class TestSubarray(unittest.TestCase):
     def test_basic_get1(self):
         self.assertEqual(self.subarray[0], self.test_array[4])
 
-    def test_basic_slice1(self):
-        self.assertEqual(self.subarray[:], self.test_array[self.index:])
+    def test_negative_get1(self):
+        self.assertEqual(self.subarray[-1], self.test_array[-1])
 
+    def test_basic_set1(self):
+        self.subarray[0] = 'e'
+        self.assertEqual(self.subarray[0], self.test_array[self.index])
+
+    def test_slice1(self):
+        self.assertEqual(self.subarray[0:2], self.test_array[self.index:self.index+2])
+
+    def test_slice2(self):
+        self.assertEqual(self.subarray[0:-1], self.test_array[self.index:-1])
+
+    def test_slice3(self):
+        idx = self.index
+        self.assertEqual(self.subarray[2:4], self.test_array[2+idx:4+idx])
 
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
