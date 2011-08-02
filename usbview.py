@@ -99,7 +99,7 @@ class PacketModel(QAbstractTableModel):
             elif col == TIMESTAMP_COL:
                 return "%f" % (pack.ts_sec + pack.ts_usec/1e6 - self.first_ts)
             elif col == ADDRESS_COL:
-                return pack.packet.summ
+                return pack.packet_summ
             elif col == DATA_COL:
                 return pack.data_hexdump(64)
             elif col == SETUP_COL and pack.is_setup_packet:
