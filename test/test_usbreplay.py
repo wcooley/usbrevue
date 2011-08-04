@@ -129,14 +129,14 @@ class TestDevice(unittest.TestCase, TestUtil):
         self.assertNotEqual(replayer, None, 'Replayer not instantiated')
           
 
-    def test_print_descriptors(self):
+    def atest_print_descriptors(self):
         """ Print all usb descriptors """
         global replayer
         replayer.print_all()
 
 
     def test_device_descriptor(self):
-        """ Print out some device descriptor fields.  """
+        """ Verify some device descriptor fields.  """
         global replayer
         if replayer.debug:
             sys.stderr.write( '\nIn TestDevice.test_device_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))
@@ -167,7 +167,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
 
     def test_cfg_descriptor(self):
-        """ Print out some configuration descriptor fields.  """
+        """ Verify some configuration descriptor fields.  """
         global replayer
         self.print_device()
         if replayer.debug:
@@ -197,7 +197,7 @@ class TestDevice(unittest.TestCase, TestUtil):
 
 
     def test_iface_descriptor(self):
-        """ Print out some interface descriptor fields.  """
+        """ Verify some interface descriptor fields.  """
         global replayer
         if replayer.debug:
             sys.stderr.write( '\nIn TestDevice.test_iface_descriptor for vid=0x%x, pid=0x%x' % (replayer.device.idVendor, replayer.device.idProduct))

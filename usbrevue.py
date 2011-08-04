@@ -437,7 +437,7 @@ class Packet(PackedFields):
     def addr(self):
         """Packet address"""
         # Does it make sense to have two decimals followed by a hex?
-        return "%d:%d:%x" % (self.busnum, self.devnum, self.epnum)
+        return "%d:%02d:%02x" % (self.busnum, self.devnum, self.epnum)
 
     @property
     def address_verbose(self):

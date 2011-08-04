@@ -99,12 +99,9 @@ class PacketModel(QAbstractTableModel):
             elif col == TIMESTAMP_COL:
                 return "%f" % (pack.ts_sec + pack.ts_usec/1e6 - self.first_ts)
             elif col == ADDRESS_COL:
-                return "%s %d:%02d:%02x (%s%s)" % (pack.event_type, pack.busnum,
-                                               pack.devnum, pack.epnum,
-                                               "ZICB"[pack.xfer_type],
-                                               "oi"[pack.epnum >> 7])
+                return pack.packet_summ
             elif col == DATA_COL:
-                return ' '.join(map(lambda x: "%02X" % x, pack.data[:64]))
+                return pack.data_hexdump(64)
             elif col == SETUP_COL and pack.is_setup_packet:
                 if pack.setup.bmRequestTypeType == 'standard':
                     return SETUP_REQUEST_TYPES[pack.setup.bRequest]
@@ -118,20 +115,17 @@ class PacketModel(QAbstractTableModel):
                 return font
         elif role == Qt.ToolTipRole:
             if col == ADDRESS_COL:
-                return '%s bus %d, device %d, endpoint 0x%x (%s, %s) ' % (
-                        {'S': 'Submission to',
-                         'C': 'Callback from',
-                         'E': 'Error on'}[pack.event_type],
-                        pack.busnum, pack.devnum, pack.epnum,
-                        ['Isochronous', 'Interrupt', 'Control', 'Bulk'][pack.xfer_type],
-                        ['outgoing', 'incoming'][pack.epnum >> 7])
+                return '%s %s (%s, %s) ' % (pack.event_type_preposition,
+                                            pack.address_verbose,
+                                            pack.transfer_type,
+                                            pack.endpoint_dir)
             if col == SETUP_COL and pack.is_setup_packet:
                 return pack.setup.fields_to_str()
         elif role == Qt.BackgroundColorRole:
             if isinstance(pack, Packet):
                 if pack.is_setup_packet:
                     return self.packet_color(pack)
-                elif pack.event_type == 'C' and pack.is_control_xfer:
+                elif pack.is_event_type_callback and pack.is_control_xfer:
                     # find the corresponding submission, color accordingly
                     for i in xrange(row, -1, -1):
                         if isinstance(self.packets[i], Packet) and \
@@ -446,8 +440,9 @@ class USBView(QApplication):
         self.packetview.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.packetview.setUniformRowHeights(True)
         self.packetview.setAllColumnsShowFocus(True)
-        self.packetview.setColumnWidth(ADDRESS_COL, 120)
-        self.packetview.setColumnWidth(SETUP_COL, 160)
+        qfm = QFontMetrics(QFont('monospace'))
+        self.packetview.setColumnWidth(ADDRESS_COL, qfm.width('X X:XX:XX (XX)'))
+        self.packetview.setColumnWidth(SETUP_COL, qfm.width('XX XX XXXX XXXX XXXX'))
         self.packetview.dump_packet.connect(self.dump_packet)
         self.packetview.passthru_toggle.toggled.connect(self.passthru_toggled)
         self.packetview.pause_toggle.toggled.connect(self.pause_toggled)

@@ -4,9 +4,7 @@ Replayer
 
 The purpose of the Replayer is to replay a packet stream to a usb device.
 The packet stream may or may not have been modified by the modifier or
-via other modules as described elsewhere in this document. 
-allows the user to apply a function to every packet in the input
-stream and writes the modifier packets as output.
+other modules as described elsewhere in this document. 
 
 1. GETTING STARTED
 
@@ -18,11 +16,14 @@ and writes to a usb device.
 
 Command line help may be found by executing:
  
-        $ sudo usbreplay.py -h
+        $ sudo ./usbreplay.py -h
                   OR
-        $ sudo usbreplay.py --help
+        $ sudo ./usbreplay.py --help
 
-To connect an input source and output destination, use a pipeline. 
+To determine vendor and product id's of USB devices on your system,
+you may execute the command, 'lsusb'.
+
+To connect an input source and output destination, you may use a pipeline. 
 For example, to read from a pcap file called "usbmon.pcap" and replay to 
 a usb device with vendor id 0x1111 and product id 0x2222, you may do 
 the following:
@@ -30,30 +31,96 @@ the following:
         $ cat usbmon.pcap | sudo usbreplay.py --vid 0x1111 --pid 0x2222
 
 
-Another method using command line arguments, to send a dev.pcap file 
-for a keyboard device on interface 3 is as follows.  This particular
+Another method using command line arguments, is to send a dev.pcap file 
+for a keyboard device on interface 3 as follows.  Note that This particular
 device has vendor id 0x413c and product id 0x2105:
 
-        $ sudo usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
+        $ sudo ./usbreplay.py -v 0x413c -p 0x2105 -i 3 -f dev.pcap
+
+
+1.1 A Replayer Use Case
+
+1.1.1 Use case 1:  Toggling capslock and numlock leds
+
+When capslock or numlock is toggled, a corresponding led light on the 
+keyboard is also toggled.  This use case shows how to generate a pcap
+file containing commands to toggle the keyboard capslock and numlock leds.
+
+To replay the capslock and numlock leds, I did the following:
+
+1)  Executed 'lsusb' to list the usb devices along with their vendor and
+    product ids. This produced the following output.
+
+    Bus 007 Device 009: ID 413c:2003 Dell Computer Corp. Keyboard
+    Bus 007 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+    Bus 006 Device 044: ID 0461:4d22 Primax Electronics, Ltd 
+    Bus 006 Device 040: ID 413c:2105 Dell Computer Corp. Model L100 Keyboard
+    Bus 006 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+
+2)  I then determined the bus used for the keyboard was bus 6 for device 40.
+
+3)  To capture traffic on bus 6 I executed the following command.
+    sudo tcpdump -i usbmon6u -w keyboard.pcap
+
+4)  I then toggled the capslock and numlock keys again and again so that
+    usb traffic from the keyboard could be captured into the keyboard.pcap
+    file by usbmon.  When I was through, I hit CNTRL-C to abort usbmon.
+
+5)  Note that the usbmon command captures all traffic on bus 6, including 
+    keyboard traffic.  Therefore, to eliminate all but the keyboard traffic, 
+    I piped the keyboard.pcap file into the Viewer so I could filter out
+    all traffic on bus 6 except for the keyboard device which according
+    to lsusb is device 40.  
+
+    I also used 2 keyboards, since once the replayer starts it disables the
+    kernel driver for the keyboard device being replayed.
+
+    The command I executed was therefore:
+    cat keyboard.pcap | ./usbview.py | sudo ./usbreplay.py --vid 0x413c --pic 0x2105
+
+6)  Once the Viewer came up, I filtered out everything except device number 40
+    as follows by inserting the following command into the Display filter:
+    devnum==40 
+
+7)  I then selected some packets and replayed them by using the 'Dump selected'
+    menu item.  After playing around with replaying selected packets, I 
+    then replayed everything so I could see the led visual toggle pattern I 
+    had originally created. I did this by selecting all packets in the 
+    Viewer, and then using the 'Dump selected' menu item to dump all 
+    selected packets into the Replayer to be replayed en mass to the usb 
+    device.
+
+8)  As all packets were replayed, the capslock and numlock leds toggled on 
+    and off according to the pattern I originally created.  Success!
+
+9)  To get the keyboard back, I then closed the Viewer and used the second 
+    keyboard to CTRL-C out of the Replayer, since the keyboard being 
+    replayed had its kernel driver disabled.  Note that CTRL-C'ing out
+    of the replayer will re-enable the kernel driver.
+
 
 
 2. THE USB DESCRIPTORS
 
 Note that much of the information below is derived from 'USB in a NutShell'.
 
-The Replayer needs at a minumum a vendor id and product id.  All other 
-arguments may then be derived from the device derived from those ids.
-The vendor and products ids may be given via command line arguments, or
-derived from the pcap input stream.
+The Replayer needs at a minumum a device designated by its vendor id and 
+product id.  All other arguments may then be either derived from this 
+device if it exists, or given as command line arguments.  If no vendor or 
+product id is given, then vendor and products id defaults are used, which
+only work for one specific computer.  Therefore, it is recommended to 
+always specify the vendor and product id for your device.
 
-A basic usb class hierarchy is shown below.  Execute lsusb to see the USB 
-devices on your system. 
+You may execute lsusb at any time to see a listing of USB devices on 
+your system. 
+
 
 2.1 Device descriptor
 
-Note that a device descriptor, as shown below at the top of the 
-hierarchy, includes all sub-descriptors and therefore represents an 
-entire device.
+A basic usb class hierarchy is shown below.  Note that a device descriptor, 
+as shown below at the top of the hierarchy, includes all sub-descriptors 
+and therefore represents an entire device.  This, of course, means that 
+any USB device can only have one device descriptor.
 
                                       device
                                    /          \
@@ -68,50 +135,50 @@ entire device.
 
 2.2 Configuration descriptor
 
-The configuration descriptor specifies values such as amount of power
-this particular configuration uses, if device is self or bus 
-powered and number of interfaces it has. Few devices have more
-than 1 configuration, so cfg index will usually be empty and we will
-simply select the only active configuration at index 0. Only 1 
-configuration may be enabled at a time.
+Each USB device can have more than one configuration, although most
+USB devices tend to only have one configuration.  The configuration 
+descriptor specifies values for each configuration the device has, 
+such as amount of power a configuration uses, if device is self or bus 
+powered and number of interfaces it has. Since very few devices have more
+than 1 configuration, the cfg index will usually be empty and we will
+simply select the only active configuration, which happens to be at 
+index 0.  Note that only 1 configuration may be enabled at a time.
 
 
 2.3 Interface descriptor
 
-The interface descriptor resolves into a functional group performing a
-single feature of the device.  For example, you could have an 
-all-in-one printer, where interface 1 describes the endpoints of a
-fax function, interface 2 describes the endpoints of a scanner 
-function, and interface 3 describes the endpoints of a printer 
-function.  More than one interface may be enabled at one time.  The
-altsetting function will allow the interface to change settings on
-the fly.  
+The interface descriptor represents a group for performing a specific
+function on the bus. 
 
-For example, interface 0 could have an altsetting of 0, and interface
-1 could have an altsetting of 0 or an altsetting of 1.  A 
-set_interface request can be used to enable one or the other of those
-interface descriptors.  If interface 1, altsetting 1 is set, then
-we can change the endpoint settings of interface 1, altsetting 1 
-without affecting the endpoint settings of interface 1, altsetting 0.
+For example, for an all-in-one printer, interface 1 may represent
+and describe the endpoints of the fax function, interface 2 may 
+describe the endpoints of the copy function, and interface 3 may 
+describe the endpoints of the printer function.  Note that more 
+than one interface may be enabled at a time, and that the altsetting
+function allows the interface to dynamically change interface settings.
+
 
 2.3 Endpoint descriptor
 
-Endpoints can be described as sources or sinks of data. As the bus is 
-host centric, endpoints occur at the end of the communications channel 
-at the USB function. At the software layer, your device driver may send 
-a packet to your devices EP1 for example. As the data is flowing out 
-from the host, it will end up in the EP1 OUT buffer. Your firmware will 
-then at its leisure read this data. If it wants to return data, the 
-function cannot simply write to the bus as the bus is controlled by the 
-host. Therefore it writes data to EP1 IN which sits in the buffer until 
-such time when the host sends a IN packet to that endpoint requesting the 
-data. Endpoints can also be seen as the interface between the hardware 
-of the function device and the firmware running on the function device.
+Endpoint descriptors are used to describe any endpoints other than
+endpoint zero.  Endpoint zero is the control endpoint, is the only
+required endpoint and is configured first.
 
-All devices must support endpoint zero. This is the endpoint which 
-receives all of the devices control and status requests during 
-enumeration and throughout the duration while the device is 
-operational on the bus. 
+USB devices are host-centric, so with respect to the host, an endpoint 
+is viewed as either a source or sink for data.  For example, if you send
+a packet to your device at endpoint 1, the data flows out from host 
+to device, ending up in the endpoint 1 buffer.  At that point, your 
+firmware decides when to read the data.  Alternatively, if the device
+has data to send to the host, it cannot initiate this transaction 
+since the bus is controlled by the host and not the device.  It can
+however write to the endpoint 1 IN buffer.  The host then can send
+an IN packet at any time requesting that data.  This explains why the
+Replayer requires polling threads, since it never knows when data
+is being presented from the device to the host.
+
+Note that, as previously stated, all devices must support endpoint zero. 
+This is necessary since all control and status requests are sent 
+through endpoint zero.
 
 
 3.  CAVEATS
@@ -120,3 +187,5 @@ It is possible that due to resolution issues, replayer timing will not
 be exact.  This may or may not result in issues. 
 
 Note that to abort the replayer, it is necessary to hit CNTL-C.
+
+
