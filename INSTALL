@@ -41,6 +41,10 @@ YMMV, depending on whether the minimum requirements are met.
             - Source: http://sourceforge.net/projects/pyusb/
             - Ubuntu 11.04: Not currently packaged
             - Fedora 14: Not currently packaged
+	* python-scapy
+	    - Needed only by usbmodify.py
+	    - Ubuntu 10.04 and later: python-scapy
+	    - Fedora 14: 
 
 In addition, for usbreplay, ensure that pyusb-1.0.0 is inserted into the 
 python tree.  For example, on some linux systems, a good location would be:

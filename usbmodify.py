@@ -31,6 +31,9 @@ import pcapy
 import gflags
 import re
 import struct
+import tempfile
+import os
+from scapy.all import RawPcapWriter, RawPcapReader
 from usbrevue import Packet
 
 
@@ -55,7 +58,6 @@ class Modifier(object):
         self.module_file = module_file
         self.routine_file = routine_file
         self.cmdline_exps = cmdline_exps
-
 
     def run(self):
         """If a user-supplied module file is present, simply run that
@@ -102,12 +104,13 @@ class Modifier(object):
         self.pcap = pcapy.open_offline(input_stream)
 
         # create the Dumper object now that we have a Reader
-        self.out = self.pcap.dump_open('-')
+        if not sys.stdout.isatty():
+            self.out = self.pcap.dump_open('-')
 
         while True:
             (hdr, pack) = self.pcap.next()
             if hdr is None:
-                return # EOF
+               return # EOF
             # keep track of the most recent yielding packet, for diffing
             self.orig_packet = Packet(hdr, pack)
             yield Packet(hdr, pack)
@@ -135,8 +138,28 @@ class Modifier(object):
             sys.stderr.write('Attempted to dump packets without first reading them -- make sure to call packet_generator()')
             sys.exit(1)
         else:
+            # make a temp file, use scapy's RawPcapWriter to write the
+            # current packet to that file, then read that same packet
+            # in using a new instance of pcapy.open_offline, then
+            # write out to stdout the packet that we just read back
+            # in, then finally delete the temp file
+            # 
+            # we have to do it this way in case the size of the packet
+            # changed, in which case the packet's pcap header needs to
+            # be regenerated. RawPcapWriter does this for us
+            #
+            # on reflection, it would be pretty straightforward to
+            # copy RawPcapWriter's code for generating the pcap
+            # header(s) and do it ourselves, without the messy temp
+            # file stuff. this code should be re-worked to do that.
+            temp = tempfile.mkstemp()
+            rpw = RawPcapWriter(temp[1], linktype = 220, sync=True)
+            rpw.write(packet.repack())
+            mypcap = pcapy.open_offline(temp[1])
+            (myhdr, mypack) = mypcap.next()
             if not sys.stdout.isatty():
-                self.out.dump(packet.hdr, packet.datapack)
+                self.out.dump(myhdr, mypack)
+            os.remove(temp[1])
 
 
     def apply_routine_file(self, packet):
