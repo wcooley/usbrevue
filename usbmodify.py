@@ -61,6 +61,7 @@ class Modifier(object):
         self.module_file = module_file
         self.routine_file = routine_file
         self.cmdline_exps = cmdline_exps
+        self.temp = tempfile.mkstemp()
 
     def run(self):
         """If a user-supplied module file is present, simply run that
@@ -155,14 +156,16 @@ class Modifier(object):
             # copy RawPcapWriter's code for generating the pcap
             # header(s) and do it ourselves, without the messy temp
             # file stuff. this code should be re-worked to do that.
-            temp = tempfile.mkstemp()
-            rpw = RawPcapWriter(temp[1], linktype = 220, sync=True)
+
+            # temp = tempfile.mkstemp()
+            rpw = RawPcapWriter(self.temp[1], linktype = 220, sync=True)
+            #print >> sys.stderr, self.temp[1]
             rpw.write(packet.repack())
-            mypcap = pcapy.open_offline(temp[1])
+            mypcap = pcapy.open_offline(self.temp[1])
             (myhdr, mypack) = mypcap.next()
             if not sys.stdout.isatty():
                 self.out.dump(myhdr, mypack)
-            os.remove(temp[1])
+            #os.remove(temp[1])
 
 
     def apply_routine_file(self, packet):
