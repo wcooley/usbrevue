@@ -76,7 +76,8 @@ To replay the capslock and numlock leds, I did the following:
     kernel driver for the keyboard device being replayed.
 
     The command I executed was therefore:
-    cat keyboard.pcap | ./usbview.py | sudo ./usbreplay.py --vid 0x413c --pic 0x2105
+    cat keyboard.pcap | ./usbview.py  \
+        | sudo ./usbreplay.py --vid 0x413c --pic 0x2105
 
 6)  Once the Viewer came up, I filtered out everything except device number 40
     as follows by inserting the following command into the Display filter:
@@ -117,10 +118,12 @@ your system.
 
 2.1 Device descriptor
 
-A basic usb class hierarchy is shown below.  Note that a device descriptor, 
-as shown below at the top of the hierarchy, includes all sub-descriptors 
-and therefore represents an entire device.  This, of course, means that 
-any USB device can only have one device descriptor.
+A basic usb class hierarchy is shown below.  
+
+Note that a device descriptor, as shown below at the top of the hierarchy, 
+includes all sub-descriptors and therefore represents an entire device. 
+This, of course, means that any USB device can only have one device 
+descriptor.
 
                                       device
                                    /          \
