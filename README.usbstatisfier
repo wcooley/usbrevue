@@ -3,37 +3,37 @@ Statisfier
 ==========
 
 The purpose of the statsifier is to tell some basic statistics about the usb
-data. This data includes minimum and maximum values (if they apply), the 
+data. This data includes minimum and maximum values (if they apply), the
 number of packets vs. the number of packets matched (if matching applies) and
 the frequency of occurance of packets (if it applies.)
 
 1. GENERAL USE
-Like other tools in the USB REVue toolkit, the Statisfier reads. The 
+Like other tools in the USB REVue toolkit, the Statisfier reads. The
 Statisfier reads from standard input. Unlike other tools the Statisfier must
 be able to write to standard output (in its current form.) To connect an input
 source and output destination, use a pipeline. For example, to read
 from a pcap file called "foo.pcap" do:
 
-        $ cat foo.pcap | modifier.py
+        $ cat foo.pcap | usbstatisfier.py
 
 To read a pcap stream directly from USB bus 7, do:
-   
-        $ sudo usbcap 7 | usbmodify.py[ | ...]
+
+        $ sudo usbcap 7 | usbstatisfier.py[ | ...]
 
 The statisfier will post the information desired to standard output.
 
 2. USE CASES
-There are two primary ways you'll likely use this tool. One is with a 
+There are two primary ways you'll likely use this tool. One is with a
 comparison and thus find how often fields meet certain criteria. To do this
 you'd use an expression akin to:
 
-        $ cat foo.pcap | modifier.py --exp "data[0] >= data[1]+1"
+        $ cat foo.pcap | usbstatisfier.py --exp "data[0] >= data[1]+1"
 
 Another is simply to check on a set of data. If this is the case:
 
-        $ cat foo.pcap | modifier.py --exp "data[0]"
+        $ cat foo.pcap | usbstatisfier.py --exp "data[0]"
 
-Currently only one expression can be successfully used. This is to be fixed. 
+Currently only one expression can be successfully used. This is to be fixed.
 If more than one expression is entered then the number of packets will be
 incorrect when displayed and the only reporting will be on the final expression.
 This is (obviously) a known error.
@@ -46,4 +46,4 @@ output in the same format as the rest of the tools.
 That said, when this goes into the effect, the currently deprecated "--verbose"
 option should be uncommented in the code and be used to post to standard output
 while a GUI window or some other alternate option takes care of the output from
-the program. 
+the program.

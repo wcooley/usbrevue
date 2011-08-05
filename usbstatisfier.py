@@ -43,13 +43,14 @@ class Statisfier(object):
         self.pcap = None
         self.out = None
         self.cmdline_exps = cmdline_exps
+        self.isEquals = False
 
         # statisifer datas
         self.numPackets = 0;
         self.numTruePackets = 0;
         self.datamin = list()
         self.datamax = list()
-     
+
         for exp in self.cmdline_exps:
           self.matches = re.finditer(r"data\[(\d+)\]", exp)
         self.matches_list = [m for m in self.matches]
@@ -71,7 +72,7 @@ class Statisfier(object):
             sys.stderr.write('NumPackets = ')
             sys.stderr.write(str(self.numPackets))
             sys.stderr.write('\n')
-               
+
             #write out for each match the relevant data
             #currently broken due to loop positioning etc...
             for match in self.matches_list:
@@ -153,7 +154,7 @@ class Statisfier(object):
 
                             if packet.data[int(match.group(1))] > self.datamax[int(match.group(1))]:
                                 self.datamax[int(match.group(1))] = packet.data[int(match.group(1))]
-                                
+
                     self.numPackets += 1
 
     # accessors and mutators
