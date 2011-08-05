@@ -33,6 +33,9 @@ import re
 import struct
 import tempfile
 import os
+import logging
+# suppress annoying IPv6 warning
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import RawPcapWriter, RawPcapReader
 from usbrevue import Packet
 
@@ -143,7 +146,7 @@ class Modifier(object):
             # in using a new instance of pcapy.open_offline, then
             # write out to stdout the packet that we just read back
             # in, then finally delete the temp file
-            # 
+            #
             # we have to do it this way in case the size of the packet
             # changed, in which case the packet's pcap header needs to
             # be regenerated. RawPcapWriter does this for us
