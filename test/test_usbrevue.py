@@ -30,6 +30,7 @@ from array import array
 from functools import partial
 from logging import debug
 from pprint import pformat
+from struct import unpack_from
 
 import pcapy
 
@@ -38,70 +39,6 @@ from usbrevue import *
 from util import apply_mask
 
 #logging.basicConfig(level=logging.DEBUG)
-
-class TestPackedFields(unittest.TestCase,TestUtil):
-
-    def setUp(self):
-                        #0   1   2   3   4   5678   9
-        test_data =     '\x80\xb3\x42\xf6\x00ABC\x01\x81'
-
-        self.fieldpack = PackedFields(None, test_data)
-
-        self.fieldpack.format_table = dict(
-                    zero    = ( '<I', 0),   # 0-3
-                    two     = ( '<c', 2),
-                    four    = ( '<?', 4),
-                    five    = ( '<c', 5),
-                    six     = ( '<2s', 6),  # 6-7
-                    seven   = ( '<c', 7),
-                    eight   = ( '<h', 8),   # 8-9
-                    nine    = ( '<B', 9),
-                )
-        self.assertEqual(len(test_data), 10)
-
-        self.set_and_test = partial(self.setattr_and_test, self.fieldpack)
-
-    def test_attr_zero(self):
-        self.assertEqual(self.fieldpack.zero, 0xf642b380)
-
-        self.set_and_test('zero', 0xffffffff)
-        self.set_and_test('zero', 0x00000000)
-
-        self.assertEqual(self.fieldpack.repack()[:4], '\x00' * 4)
-
-    def test_attr_two(self):
-        self.assertEqual(self.fieldpack.two, 'B')
-
-        self.set_and_test('two', 'b')
-        self.assertEqual(self.fieldpack.repack()[2], 'b')
-
-    def test_attr_four(self):
-        self.assertEqual(self.fieldpack.four, False)
-
-        self.set_and_test('four', True)
-        self.set_and_test('four', None)
-
-    def test_attr_five(self):
-        self.assertEqual(self.fieldpack.five, 'A')
-        self.assertEqual(self.fieldpack.repack()[5], 'A')
-        self.set_and_test('five', 'a')
-        self.assertEqual(self.fieldpack.repack()[5], 'a')
-
-    def test_parent_update(self):
-        fmt_table = dict(   six1 = ('<c', 0),
-                            six2 = ('<c', 1))
-
-        def _update_six(fp, dp):
-            fp.repacket('six', [dp.tostring()])
-
-        fp2 = PackedFields(fmt_table, self.fieldpack.six,
-                    partial(_update_six, self.fieldpack))
-        fp2.six2 = 'D'
-
-        self.assertEqual(fp2.six2, 'D')
-        self.assertEqual(fp2.six2, self.fieldpack.seven)
-        self.assertEqual(self.fieldpack.seven, 'D')
-
 
 class TestPacket(unittest.TestCase,TestUtil):
 
@@ -487,7 +424,6 @@ class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
-    suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
     suite.addTest(loader.loadTestsFromTestCase(TestPacket))
     suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
