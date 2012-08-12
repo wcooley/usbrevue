@@ -66,7 +66,7 @@ USBMON_PACKET_FORMAT = dict(
     data        = ('<%dB', 64),
 )
 
-# Note that the packet transfer type has different numeric identifiers then the
+# Note that the packet transfer type has different numeric identifiers than the
 # endpoint control types in the Linux kernel headers <linux/usb/ch9.h>:
 #define USB_ENDPOINT_XFER_CONTROL       1
 #define USB_ENDPOINT_XFER_ISOC          1

@@ -22,7 +22,7 @@
 
 """
     Class FieldPack represents a generic interface to unpacking and
-    repacking data based on a format table.
+    repacking named fields from data based on a format table.
 """
 
 __version__ = '0.0.1'
@@ -49,7 +49,8 @@ class FieldPack(object):
     """
 
     # This must exist so __setattr__ can find key 'format_table' missing from
-    # self.format_table when it is being initialized.
+    # self.format_table when it is being initialized and then pass control to
+    # object.__setattr__.
     format_table = dict()
 
     def __init__(self, format_table=None, datapack=None, update_parent=None):
@@ -63,6 +64,7 @@ class FieldPack(object):
                 heirarchy of FieldPack objects. It requires, as argument, the
                 datapack of the sub-object. Can be None.
                 """
+
         self._cache = dict()
 
         if format_table != None:
@@ -85,6 +87,7 @@ class FieldPack(object):
         data for string-formatting that may be in the format string.
 
         Returns the tuple of data as from struct.unpack_from."""
+
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return unpack_from(fmt, self.datapack, offset)
@@ -97,17 +100,20 @@ class FieldPack(object):
         """Repack attr into self.datapack using (struct) format string and
         offset from self.format_table. fmtx can be used to provide additional
         data for string-formatting that may be in the format string."""
+
         debug('repacket: attr: %s, vals: %s, fmtx: %s', attr, pformat(vals), fmtx)
+
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return pack_into(fmt, self.datapack, offset, *vals)
 
     def __setattr__(self, attr, val):
-        """__setattr__ is called went setting all attributes, so it must
-        differentiate between tabled-based attributes and regular attributes.
+        """__setattr__ is called when setting all attributes, so it must
+        differentiate between table-based attributes and regular attributes.
         If the attribute is not a key in self.format_table, then it calls up to
         ``object``'s __setattr__, which handles "normal" attributes,
         properties, etc."""
+
         if attr in self.format_table:
             self._cache[attr] = val
             self.repacket(attr, [val])
