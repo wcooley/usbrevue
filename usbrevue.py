@@ -38,7 +38,7 @@ import datetime
 import logging
 #logging.basicConfig(level=logging.DEBUG)
 
-from packedfields import PackedFields
+from fieldpack import FieldPack
 from util import reverse_update_dict, apply_mask
 
 USBMON_PACKET_FORMAT = dict(
@@ -82,7 +82,7 @@ USBMON_TRANSFER_TYPE = dict(
 # Add the reverse to the dict for convenience
 reverse_update_dict(USBMON_TRANSFER_TYPE)
 
-class Packet(PackedFields):
+class Packet(FieldPack):
     """The ``Packet`` class adds higher-level semantics over the lower-level field
     packing and unpacking.
 
@@ -107,7 +107,7 @@ class Packet(PackedFields):
         * data
 
     Other attributes are extracted dynamically but require more implementation
-    than PackedFields provides by default and thus are separate properties with
+    than FieldPack provides by default and thus are separate properties with
     their own docstrings.
 
     These attributes correspond with the struct usbmon_packet data members from:
@@ -456,7 +456,7 @@ REQUEST_TYPE_MASK = dict(
         recipient   = 0b00011111,
 )
 
-class SetupField(PackedFields):
+class SetupField(FieldPack):
     """The ``SetupField`` class provides access to the ``setup`` field of the
     Packet class. As the ``setup`` field is a multi-byte field with bit-mapped
     and numeric encodings, this class provides higher-level accessors which
@@ -474,7 +474,7 @@ class SetupField(PackedFields):
     """
 
     def __init__(self, data=None, update_parent=None):
-        PackedFields.__init__(self, SETUP_FIELD_FORMAT, data, update_parent)
+        FieldPack.__init__(self, SETUP_FIELD_FORMAT, data, update_parent)
 
     def _bmRequestType_mask(self, mask):
         return self.bmRequestType & REQUEST_TYPE_MASK[mask]

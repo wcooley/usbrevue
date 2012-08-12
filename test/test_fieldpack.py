@@ -24,16 +24,16 @@ import unittest
 from functools import partial
 
 from tutil import *
-from packedfields import PackedFields
+from fieldpack import FieldPack
 from util import apply_mask
 
-class TestPackedFields(unittest.TestCase,TestUtil):
+class TestFieldPack(unittest.TestCase,TestUtil):
 
     def setUp(self):
                         #0   1   2   3   4   5678   9
         test_data =     '\x80\xb3\x42\xf6\x00ABC\x01\x81'
 
-        self.fieldpack = PackedFields(None, test_data)
+        self.fieldpack = FieldPack(None, test_data)
 
         self.fieldpack.format_table = dict(
                     zero    = ( '<I', 0),   # 0-3
@@ -82,7 +82,7 @@ class TestPackedFields(unittest.TestCase,TestUtil):
         def _update_six(fp, dp):
             fp.repacket('six', [dp.tostring()])
 
-        fp2 = PackedFields(fmt_table, self.fieldpack.six,
+        fp2 = FieldPack(fmt_table, self.fieldpack.six,
                     partial(_update_six, self.fieldpack))
         fp2.six2 = 'D'
 
@@ -93,5 +93,5 @@ class TestPackedFields(unittest.TestCase,TestUtil):
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
-    suite.addTest(loader.loadTestsFromTestCase(TestPackedFields))
+    suite.addTest(loader.loadTestsFromTestCase(TestFieldPack))
     unittest.TextTestRunner(verbosity=2).run(suite)

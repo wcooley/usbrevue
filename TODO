@@ -1,6 +1,6 @@
 
 usbrevue:
-- Split into separate modules for PackedFields, Packet, SetupFields
+- Split into separate modules for Packet, SetupFields
 - Add dynamic decoders
 - Decode GET_DESCRIPTOR and othe setup requests
 - Add ability to grow or shrink packet data (requires "managed" array?)

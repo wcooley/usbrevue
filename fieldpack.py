@@ -21,7 +21,7 @@
 #
 
 """
-    Class PackedFields represents a generic interface to unpacking and
+    Class FieldPack represents a generic interface to unpacking and
     repacking data based on a format table.
 """
 
@@ -33,13 +33,13 @@ from pprint import pprint, pformat
 from struct import unpack_from, pack_into
 from logging import debug
 
-class PackedFields(object):
+class FieldPack(object):
     """Base class for field decodings/unpacking.
 
-    The PackedFields class provides access to named fields in binary data with
+    The FieldPack class provides access to named fields in binary data with
     on-demand packing and unpacking.
 
-    A PackedFields object is defined by a format table and sequence of data.
+    A FieldPack object is defined by a format table and sequence of data.
     The format table lists the name of the field (which becomes an object
     attribute), a ``struct`` format code and byte offset.
 
@@ -60,7 +60,7 @@ class PackedFields(object):
                 String or array of packed data
             3. update_parent
                 Call-back function to enable attribute changes to flow up a
-                heirarchy of PackedField objects. It requires, as argument, the
+                heirarchy of FieldPack objects. It requires, as argument, the
                 datapack of the sub-object. Can be None.
                 """
         self._cache = dict()
