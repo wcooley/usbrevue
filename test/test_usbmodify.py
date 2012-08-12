@@ -32,7 +32,7 @@ import pcapy
 
 from tutil import *
 import usbmodify
-from usbrevue import Packet
+from usbrevue import USBMonPacket
 
 # Why write programs when you can write programs that write programs?
 #
@@ -423,7 +423,7 @@ def packet_generator():
         (hdr, pack) = pcap.next()
         if hdr is None:
             return # EOF
-        yield Packet(hdr, pack)
+        yield USBMonPacket(hdr, pack)
 
 
 

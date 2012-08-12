@@ -25,7 +25,7 @@ plotting the data payload of USB packets.
 
 import sys
 from usbview import PcapThread
-from usbrevue import Packet
+from usbrevue import USBMonPacket
 from PyQt4 import Qt
 from PyQt4.QtGui import *
 from PyQt4.QtCore import (QAbstractTableModel, QModelIndex, QVariant,

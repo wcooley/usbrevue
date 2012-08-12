@@ -27,7 +27,7 @@ import pcapy
 import gflags
 import re
 import struct
-from usbrevue import Packet
+from usbrevue import USBMonPacket
 from PyQt4 import QtGui,QtCore
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
@@ -99,8 +99,8 @@ class Statisfier(object):
             if hdr is None:
                 return # EOF
             # keep track of the most recent yielding packet, for diffing
-            self.orig_packet = Packet(hdr, pack)
-            yield Packet(hdr, pack)
+            self.orig_packet = USBMonPacket(hdr, pack)
+            yield USBMonPacket(hdr, pack)
 
     def commit_packet(self, packet):
         self.apply_cmdline_exps(packet)

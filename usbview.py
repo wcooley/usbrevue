@@ -23,7 +23,7 @@
 import sys
 from optparse import OptionParser
 import pcapy
-from usbrevue import Packet, USBMON_TRANSFER_TYPE, SETUP_REQUEST_TYPES
+from usbrevue import USBMonPacket, USBMON_TRANSFER_TYPE, SETUP_REQUEST_TYPES
 import codegen
 from PyQt4.QtCore import Qt, QThread, QVariant, pyqtSignal, \
                          QAbstractTableModel, QModelIndex, \
@@ -58,7 +58,7 @@ class PcapThread(QThread):
             if hdr is None:
                 self.eof.emit()
                 break
-            self.new_packet.emit(Packet(hdr, pack))
+            self.new_packet.emit(USBMonPacket(hdr, pack))
 
 
 
@@ -122,13 +122,13 @@ class PacketModel(QAbstractTableModel):
             if col == SETUP_COL and pack.is_setup_packet:
                 return pack.setup.fields_to_str()
         elif role == Qt.BackgroundColorRole:
-            if isinstance(pack, Packet):
+            if isinstance(pack, USBMonPacket):
                 if pack.is_setup_packet:
                     return self.packet_color(pack)
                 elif pack.is_event_type_callback and pack.is_control_xfer:
                     # find the corresponding submission, color accordingly
                     for i in xrange(row, -1, -1):
-                        if isinstance(self.packets[i], Packet) and \
+                        if isinstance(self.packets[i], USBMonPacket) and \
                                 self.packets[i].event_type == 'S' and \
                                 self.packets[i].busnum == pack.busnum and \
                                 self.packets[i].devnum == pack.devnum and \

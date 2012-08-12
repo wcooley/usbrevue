@@ -1,8 +1,8 @@
 
 usbrevue:
-- Split into separate modules for Packet, SetupFields
+- Split into separate modules for USBMonPacket, SetupFields
 - Add dynamic decoders
 - Decode GET_DESCRIPTOR and othe setup requests
 - Add ability to grow or shrink packet data (requires "managed" array?)
-- Split Packet into layers--a "basic" extraction layer and a "fancy" layer for
-  string formatting of various decodings, inquiry properties, etc.
+- Split USBMonPacket into layers--a "basic" extraction layer and a "fancy"
+  layer forp string formatting of various decodings, inquiry properties, etc.

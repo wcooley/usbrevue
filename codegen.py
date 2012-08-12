@@ -67,7 +67,7 @@ if __name__ == '__main__':
     while 1:
         h, p = pcap.next();
         if h is None: break
-        pack = Packet(h,p)
+        pack = USBMonPacket(h,p)
         sys.stdout.write(packet_to_libusb_code(pack))
                 
 

@@ -37,7 +37,7 @@ import logging
 # suppress annoying IPv6 warning
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import RawPcapWriter, RawPcapReader
-from usbrevue import Packet
+from usbrevue import USBMonPacket
 
 
 FLAGS = gflags.FLAGS
@@ -116,8 +116,8 @@ class Modifier(object):
             if hdr is None:
                return # EOF
             # keep track of the most recent yielding packet, for diffing
-            self.orig_packet = Packet(hdr, pack)
-            yield Packet(hdr, pack)
+            self.orig_packet = USBMonPacket(hdr, pack)
+            yield USBMonPacket(hdr, pack)
 
 
     def commit_packet(self, packet):

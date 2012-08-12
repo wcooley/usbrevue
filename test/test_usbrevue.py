@@ -35,27 +35,27 @@ from struct import unpack_from
 import pcapy
 
 from tutil import *
-from usbrevue import (Packet,
+from usbrevue import (USBMonPacket,
     REQUEST_TYPE_DIRECTION,
     REQUEST_TYPE_MASK,
     REQUEST_TYPE_TYPE,
     SETUP_REQUEST_TYPES,
-    WrongPacketXferType)
+    WrongUSBPacketXferType)
 from util import apply_mask
 
 #logging.basicConfig(level=logging.DEBUG)
 
-class TestPacket(unittest.TestCase,TestUtil):
+class TestUSBMonPacket(unittest.TestCase,TestUtil):
 
     def setUp(self):
         pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
-        self.packet = Packet(*pcap.next())
+        self.packet = USBMonPacket(*pcap.next())
 
         self.set_and_test = partial(self.setattr_and_test, self.packet)
 
         # Long name, but not as long as without it
-        self.assertRaisesWrongPacketXferType = partial(self.assertRaises,
-                WrongPacketXferType, getattr, self.packet)
+        self.assertRaisesWrongUSBPacketXferType = partial(self.assertRaises,
+                WrongUSBPacketXferType, getattr, self.packet)
 
         # Verify that we have the right test data
         self.assertEqual(self.packet.length, 40, 'unmodified packet wrong--test bad?')
@@ -147,19 +147,19 @@ class TestPacket(unittest.TestCase,TestUtil):
     if PYTHON_2_7_PLUS:
         @unittest.skip('Exception not yet implemented')
         def test_error_count(self):
-            self.assertRaisesWrongPacketXferType('error_count')
+            self.assertRaisesWrongUSBPacketXferType('error_count')
 
         @unittest.skip('Exception not yet implemented')
         def test_numdesc(self):
-            self.assertRaisesWrongPacketXferType('numdesc')
+            self.assertRaisesWrongUSBPacketXferType('numdesc')
 
         @unittest.skip('Exception not yet implemented')
         def test_interval(self):
-            self.assertRaisesWrongPacketXferType('interval')
+            self.assertRaisesWrongUSBPacketXferType('interval')
 
         @unittest.skip('Exception not yet implemented')
         def test_start_frame(self):
-            self.assertRaisesWrongPacketXferType('start_frame')
+            self.assertRaisesWrongUSBPacketXferType('start_frame')
 
     def test_xfer_flags(self):
         self.assertEqual(self.packet.xfer_flags, 0x200, 'Unmodified xfer_flags')
@@ -226,11 +226,11 @@ class TestPacket(unittest.TestCase,TestUtil):
         packet2 = self.packet.copy()
         self.assertTrue(self.packet == packet2)
 
-class TestPacketData(unittest.TestCase,TestUtil):
+class TestUSBMonPacketData(unittest.TestCase,TestUtil):
 
     def setUp(self):
         pcap = pcapy.open_offline(test_data('usb-single-packet-8bytes-data.pcap'))
-        self.packet = Packet(*pcap.next())
+        self.packet = USBMonPacket(*pcap.next())
 
     def test_data(self):
         self.assertEqual(self.packet.data, [1, 0, 6, 0, 0, 0, 0, 0],
@@ -238,7 +238,7 @@ class TestPacketData(unittest.TestCase,TestUtil):
         self.assertEqual(self.packet.datalen, 8,
                             'datalen of unmodified data')
         self.assertEqual(self.packet.datalen, len(self.packet.data),
-                            'len of Packet.data')
+                            'len of USBMonPacket.data')
 
         self.packet.data[0] = 0xff
         self.assertEqual(self.packet.data, [0xff, 0, 6, 0, 0, 0, 0, 0],
@@ -264,7 +264,7 @@ class TestSetupField(unittest.TestCase,TestUtil):
 
     def setUp(self):
         pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
-        self.packet = Packet(*pcap.next())
+        self.packet = USBMonPacket(*pcap.next())
         self.setup = self.packet.setup
         self.set_and_test = partial(self.setattr_and_test, self.packet.setup)
 
@@ -392,7 +392,7 @@ class TestSetupField(unittest.TestCase,TestUtil):
 class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
     def setUp(self):
         pcap = pcapy.open_offline(test_data('usb-single-packet-2.pcap'))
-        self.packet = Packet(*pcap.next())
+        self.packet = USBMonPacket(*pcap.next())
 
     def test_packet_manual_unpack(self):
         packet_setup = unpack_from('=8s', self.packet.datapack, 40)[0]
@@ -429,8 +429,8 @@ class TestSetupFieldPropagation(unittest.TestCase,TestUtil):
 if __name__ == '__main__':
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
-    suite.addTest(loader.loadTestsFromTestCase(TestPacket))
-    suite.addTest(loader.loadTestsFromTestCase(TestPacketData))
+    suite.addTest(loader.loadTestsFromTestCase(TestUSBMonPacket))
+    suite.addTest(loader.loadTestsFromTestCase(TestUSBMonPacketData))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupField))
     suite.addTest(loader.loadTestsFromTestCase(TestSetupFieldPropagation))
     unittest.TextTestRunner(verbosity=2).run(suite)

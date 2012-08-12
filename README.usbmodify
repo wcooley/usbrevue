@@ -184,9 +184,9 @@ must be passed to the commit function. To remove or ignore a packet, simply
 don't pass it to the commit function.
 
 Additionally, at any time you can create a new packet by importing
-Packet from usbrevue:
+USBMonPacket from usbrevue:
 
-        new_packet = Packet()
+        new_packet = USBMonPacket()
 
 You can then assign values to the new packet's attributes manually.
 

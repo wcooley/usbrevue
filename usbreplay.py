@@ -25,7 +25,7 @@ import sys
 import usb.core
 import usb.util
 import pcapy
-from usbrevue import Packet
+from usbrevue import USBMonPacket
 import optparse
 import traceback
 import time
@@ -283,7 +283,7 @@ class Replayer(object):
                 if hdr is None:
                     break # EOF
 
-                packet = Packet(hdr, pack)
+                packet = USBMonPacket(hdr, pack)
                 if self.debug:
                     sys.stderr.write( 'In Replayer.run: Printing pcap field info...\n')
                     packet.print_pcap_fields()

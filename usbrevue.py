@@ -20,9 +20,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""Core USB REVue classes: Packet and SetupField.
-    * Packet represents a USBMon packet.
-    * SetupField represents the 'setup' attribute of the Packet.
+"""Core USB REVue classes: USBMonPacket and SetupField.
+    * USBMonPacket represents a USBMon packet.
+    * SetupField represents the 'setup' attribute of the USBMonPacket.
 
 """
 
@@ -82,8 +82,8 @@ USBMON_TRANSFER_TYPE = dict(
 # Add the reverse to the dict for convenience
 reverse_update_dict(USBMON_TRANSFER_TYPE)
 
-class Packet(FieldPack):
-    """The ``Packet`` class adds higher-level semantics over the lower-level field
+class USBMonPacket(FieldPack):
+    """The ``USBMonPacket`` class adds higher-level semantics over the lower-level field
     packing and unpacking.
 
     The following attributes are extracted dynamically from the packet data and
@@ -117,19 +117,19 @@ class Packet(FieldPack):
     def __init__(self, hdr=None, pack=None):
         """Requires a libpcap/pcapy header and packet data."""
 
-        super(Packet, self).__init__()
+        super(USBMonPacket, self).__init__()
         self.format_table = USBMON_PACKET_FORMAT
 
         if None not in (hdr, pack):
             if len(pack) < 64:
-                raise RuntimeError("Not a USB Packet")
+                raise RuntimeError("Not a USB USBMonPacket")
 
             self._hdr = hdr
             self.datapack = array('c', pack)
 
             if self.event_type not in ['C', 'S', 'E'] or \
                     self.xfer_type not in USBMON_TRANSFER_TYPE.values():
-                raise RuntimeError("Not a USB Packet")
+                raise RuntimeError("Not a USBMonPacket")
 
     @property
     def hdr(self):
@@ -189,7 +189,7 @@ class Packet(FieldPack):
         """Returns the packet data as a string, taking care to repack any
         "loose" attributes."""
         self.repacket('data', self.data, self.datalen)
-        return super(Packet, self).repack()
+        return super(USBMonPacket, self).repack()
 
     @property
     def setup(self):
@@ -212,7 +212,7 @@ class Packet(FieldPack):
         if self.is_isochronous_xfer:
             return self.cache('error_count', lambda a: self.unpacket(a)[0])
         else:
-            # FIXME Raise WrongPacketXferType instead
+            # FIXME Raise WrongUSBPacketXferType instead
             return 0
 
     @property
@@ -221,7 +221,7 @@ class Packet(FieldPack):
         if self.is_isochronous_xfer:
             return self.cache('numdesc', lambda a: self.unpacket(a)[0])
         else:
-            # FIXME Raise WrongPacketXferType instead
+            # FIXME Raise WrongUSBPacketXferType instead
             return 0
 
     # interval is only meaningful for isochronous or interrupt transfers
@@ -232,7 +232,7 @@ class Packet(FieldPack):
         if self.is_isochronous_xfer or self.is_interrupt_xfer:
             return self.cache('interval', lambda a: self.unpacket(a)[0])
         else:
-            # FIXME Raise WrongPacketXferType instead
+            # FIXME Raise WrongUSBPacketXferType instead
             return 0
 
     @property
@@ -242,7 +242,7 @@ class Packet(FieldPack):
         if self.is_isochronous_xfer:
             return self.cache('start_frame', lambda a: self.unpacket(a)[0])
         else:
-            # FIXME Raise WrongPacketXferType instead
+            # FIXME Raise WrongUSBPacketXferType instead
             return 0
 
     # Boolean tests for transfer types
@@ -340,7 +340,7 @@ class Packet(FieldPack):
 
     def copy(self):
         """Make a complete copy of the Packet."""
-        new_packet = Packet(self.hdr, self.datapack)
+        new_packet = USBMonPacket(self.hdr, self.datapack)
         return new_packet
 
 
@@ -458,7 +458,7 @@ REQUEST_TYPE_MASK = dict(
 
 class SetupField(FieldPack):
     """The ``SetupField`` class provides access to the ``setup`` field of the
-    Packet class. As the ``setup`` field is a multi-byte field with bit-mapped
+    USBMonPacket class. As the ``setup`` field is a multi-byte field with bit-mapped
     and numeric encodings, this class provides higher-level accessors which
     decode the various subfields.
 
@@ -569,8 +569,8 @@ class SetupField(FieldPack):
 
         return s
 
-class WrongPacketXferType(Exception):
-    """Exception that should be raised when data Packet fields are accessed for
+class WrongUSBPacketXferType(Exception):
+    """Exception that should be raised when data USBMonPacket fields are accessed for
     inappropriate transfer types. Note that this is currently not done."""
     pass
 
@@ -587,7 +587,7 @@ if __name__ == '__main__':
         hdr, pack = pcap.next()
         if hdr is None:
             break # EOF
-        p = Packet(hdr, pack)
+        p = USBMonPacket(hdr, pack)
         #p.print_pcap_fields()
         #p.print_pcap_summary()
         #if len(p.data) > 0:
