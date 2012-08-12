@@ -35,7 +35,12 @@ from struct import unpack_from
 import pcapy
 
 from tutil import *
-from usbrevue import *
+from usbrevue import (Packet,
+    REQUEST_TYPE_DIRECTION,
+    REQUEST_TYPE_MASK,
+    REQUEST_TYPE_TYPE,
+    SETUP_REQUEST_TYPES,
+    WrongPacketXferType)
 from util import apply_mask
 
 #logging.basicConfig(level=logging.DEBUG)
