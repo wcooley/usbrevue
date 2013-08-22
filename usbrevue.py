@@ -22,15 +22,15 @@
 
 """Core USB REVue classes: PackedFields, Packet and SetupField.
 
-    * PackedFields represents a generic interface to unpacking and repacking data
-      based on a table.
+    * PackedFields represents a generic interface to unpacking and repacking
+      data based on a table.
     * Packet represents a USBMon packet.
     * SetupField represents the 'setup' attribute of the Packet.
 
 """
 
-__version__= '0.0.1'
-import sys
+__version__ = '0.0.1'
+#import sys
 
 from array import array
 from collections import MutableSequence, Sequence
@@ -39,7 +39,7 @@ from logging import debug
 from pprint import pprint, pformat
 from struct import unpack_from, pack_into, unpack
 import datetime
-import logging
+#import logging
 #logging.basicConfig(level=logging.DEBUG)
 
 from util import reverse_update_dict, apply_mask
@@ -149,7 +149,8 @@ class PackedFields(object):
         """Repack attr into self.datapack using (struct) format string and
         offset from self.format_table. fmtx can be used to provide additional
         data for string-formatting that may be in the format string."""
-        debug('repacket: attr: %s, vals: %s, fmtx: %s', attr, pformat(vals), fmtx)
+        debug('repacket: attr: {0}, vals: {1}, fmtx: {2}'.format(attr,
+            pformat(vals), fmtx))
         fmt, offset = self.format_table[attr]
         if fmtx != None: fmt %= fmtx
         return pack_into(fmt, self.datapack, offset, *vals)
@@ -207,8 +208,8 @@ class PackedFields(object):
         return self.datapack != other.datapack
 
 class Packet(PackedFields):
-    """The ``Packet`` class adds higher-level semantics over the lower-level field
-    packing and unpacking.
+    """The ``Packet`` class adds higher-level semantics over the lower-level
+    field packing and unpacking.
 
     The following attributes are extracted dynamically from the packet data and
     re-packed into the data when assigned to.
@@ -266,7 +267,7 @@ class Packet(PackedFields):
         Return list of 3-tuples of (attr, my_val, other_val)."""
 
         result = list()
-        
+
         for f in self.fields:
             m = getattr(self, f)
             o = getattr(other, f)
